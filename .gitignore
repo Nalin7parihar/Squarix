@@ -1,0 +1,49 @@
+.qodo
+
+# Root
+node_modules/
+.env
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+**/node_modules/
+
+# OS junk
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Next.js build output
+/frontend/.next/
+/frontend/out/
+/frontend/.turbo/
+
+# Tailwind and Next.js cache
+/frontend/.cache/
+
+# Express build artifacts (if any)
+# If you're using Babel or bundlers later
+/backend/dist/
+backend/.env
+
+# Optional: ignore frontend test coverage and temp files
+/frontend/coverage/
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+frontend/node_modules
+
+# Optional: if using lock files (keep only one)
+frontend/package-lock.json
+backend/package-lock.json
+# OR if you’re using yarn
+# frontend/yarn.lock
+# backend/yarn.lock
+
