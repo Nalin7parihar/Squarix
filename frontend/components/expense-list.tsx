@@ -146,7 +146,7 @@ export function ExpenseList({ isLoading = false }: ExpenseListProps) {
                       key={index}
                       className="h-6 w-6 border border-background transition-transform duration-200 hover:scale-125 hover:z-10"
                     >
-                      <AvatarImage src={`/placeholder.svg?height=24&width=24`} alt={participant} />
+                      
                       <AvatarFallback className="text-[10px]">
                         {participant.substring(0, 2).toUpperCase()}
                       </AvatarFallback>

@@ -181,7 +181,7 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
                     onClick={() => toggleFriend(friend.id)}
                   >
                     <Avatar className="h-5 w-5">
-                      <AvatarImage src={`/placeholder.svg?height=20&width=20`} alt={friend.name} />
+                      
                       <AvatarFallback className="text-[10px]">
                         {friend.name
                           .split(" ")

@@ -90,7 +90,7 @@ export function FriendBalances({ isLoading = false }: FriendBalancesProps) {
             >
               <div className="flex items-center gap-3">
                 <Avatar className="transition-transform duration-200 hover:scale-110">
-                  <AvatarImage src={`/placeholder.svg?height=40&width=40`} alt={friend.name} />
+                 
                   <AvatarFallback>
                     {friend.name
                       .split(" ")

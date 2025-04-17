@@ -86,7 +86,7 @@ const Header = () => {
         className="rounded-full transition-transform duration-200 hover:scale-110"
       >
         <Avatar>
-          <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Avatar" />
+          
           <AvatarFallback>JD</AvatarFallback>
         </Avatar>
         <span className="sr-only">Profile</span>
@@ -95,5 +95,4 @@ const Header = () => {
   </header>
   )
 }
-
 export default Header
