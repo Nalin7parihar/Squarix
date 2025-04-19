@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeftRight, Plus} from "lucide-react"
+import { ArrowLeftRight, LogOut, Plus, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,6 +13,7 @@ import { FriendBalances } from "./friend-balances"
 import { AddExpenseDialog } from "./add-expense-dialog"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
+
 
 export function Dashboard() {
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false)
@@ -36,8 +37,11 @@ export function Dashboard() {
     })
   }
 
+
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
+     
      
       <div className="flex flex-1">
         <main className="flex-1 p-4 md:p-6">

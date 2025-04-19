@@ -9,7 +9,7 @@ const Sidebar = () => {
     <aside className="hidden w-64 border-r bg-muted/40 md:block">
           <nav className="grid gap-2 p-4 text-sm">
             <Link
-              href="/"
+              href="/dashboard"
               className={`flex items-center gap-2 rounded-lg  px-3 py-2 ${pathName === '/' ? ' bg-accent text-accent-foreground' : 'text-muted-foreground'} transition-colors duration-200  hover:bg-accent hover:text-accent-foreground`}
             >
               <Home className="h-4 w-4" />
