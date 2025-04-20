@@ -1,0 +1,34 @@
+import mongoose from "mongoose";
+
+
+const transactionSchema = new mongoose.Schema({
+  amount : {
+    type : Number,
+    required : true
+  },
+  date : {
+    type : Date,
+    default : Date.now
+  },
+  description : {
+    type : String,
+    required : true
+  },
+  category : {
+    type : String,
+    required : true
+  },
+  senderId : {
+    type : mongoose.Schema.Types.ObjectId,
+    ref : "Users",
+    required : true
+  },
+  receiverId : {
+    type : mongoose.Schema.Types.ObjectId,
+    ref : "Users",
+    required : true
+  },
+});
+
+const Transactions = mongoose.model("Transactions",transactionSchema);
+export default Transactions;

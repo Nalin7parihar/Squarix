@@ -41,4 +41,46 @@ const userLogin=  async (req,res) => {
     console.log(error);
   }
 }
-export {userLogin,userRegister};
+
+const userUpdatePassword = async (req,res) => {
+  const {oldPassword,newPassword} = req.body;
+  try {
+    if(!oldPassword || !newPassword) {
+      return res.status(400).json({message : "pls fill all the fields"});
+    }
+    const user = await users.findById(req.user.id);
+    const isMatch = await bcrypt.compare(oldPassword,user.password);
+    if(!isMatch) {
+      return res.status(400).json({message : "Invalid Credentials"});
+    }
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(newPassword,salt);
+    user.password =  hashedPassword;
+    await user.save();
+    return res.status(200).json({message : "Password Updated Successfully",oldPassword,newPassword});
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+const userDeleteAccount = async (req,res) => {
+  try {
+    const {id} = req.user;
+    const user = await users.findByIdAndDelete(id);
+    if(!user) return res.status(404).json({message : "User not found"});
+    return res.status(200).json({message : "User deleted Successfully"});
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+const getUsers=  async (req,res) => {
+    try {
+      const userList = await users.find().select("name email");
+      if(!userList) return res.status(404).json({message : "No Users found"});
+      return res.status(200).json({userList});
+    } catch (error) {
+      console.log(error);
+    }
+}
+export {userLogin,userRegister,userUpdatePassword,userDeleteAccount,getUsers};

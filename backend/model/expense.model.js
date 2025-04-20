@@ -1,0 +1,44 @@
+import mongoose from "mongoose";
+
+const expenseSchema = new mongoose.Schema({
+  title : {
+    type : String,
+    required : true
+  },
+  amount : {
+    type : Number,
+    required : true
+  },
+  senderId : {
+    type : mongoose.Schema.Types.ObjectId,
+    ref : "Users",
+    required : true
+  },
+  participants: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Users",
+      },
+      share: {
+        type: Number,
+      },
+    },
+  ],
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Group",
+    default: null,
+  },
+  isGroupExpense: {
+    type: Boolean,
+    default: false,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+})
+
+const Expense = mongoose.model("Expense", expenseSchema);
+export default Expense;
