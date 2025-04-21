@@ -77,4 +77,39 @@ const getTransactionSummary = async (req,res) => {
 
     res.json({totalYouAreOwed,totalYouOwe,netBalance,friendBalances});
 }
-export {getUserTransactions,addTransaction,updateTransaction,getTransactionSummary};
+const filterTransactions = async (req,res) => {
+  const {tab} = req.query;
+  const {id} = req.user;
+  try {
+     if(tab === "youOwe") {
+      const transactions = await Transactions.find({senderId : id}).populate("senderId ","name");
+      if(!transactions) {
+        return res.status(404).json({message : "Transactions not found"});
+      }
+      if(transactions.length === 0) {
+        return res.status(200).json({message : "No transactions found"});
+      }
+      let filteredTransactions  = transactions.filter(txn => {
+        return txn.senderId._id.equals(id);
+      });
+      return res.status(200).json({message :  "Transactions found",transactions : filteredTransactions});
+
+    } else if(tab === "youAreOwed") {
+      const transactions = await Transactions.find({receiverId : id}).populate("receiverId ","name");
+      if(!transactions) {
+        return res.status(404).json({message : "Transactions not found"});
+      }
+      if(transactions.length === 0) {
+        return res.status(200).json({message : "No transactions found"});
+      }
+      let filteredTransactions  = transactions.filter(txn => {
+        return txn.receiverId._id.equals(id);
+      });
+      return res.status(200).json({message :  "Transactions found",transactions : filteredTransactions});
+
+    }
+  } catch (error) {
+    console.log(error);
+  }
+}
+export {getUserTransactions,addTransaction,updateTransaction,getTransactionSummary,filterTransactions};

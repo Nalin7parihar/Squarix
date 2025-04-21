@@ -31,7 +31,6 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
 import { 
@@ -109,14 +108,7 @@ export default function ActivityPage() {
           </div>
           
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:flex-initial">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search expenses..."
-                className="pl-8 h-10 w-full md:w-[200px]"
-              />
-            </div>
+            
             
             <Select
               value={timePeriod}
