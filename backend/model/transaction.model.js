@@ -28,6 +28,10 @@ const transactionSchema = new mongoose.Schema({
     ref : "Users",
     required : true
   },
+  isSettled : {
+    type : Boolean,
+    default : false
+  }
 });
 
 const Transactions = mongoose.model("Transactions",transactionSchema);

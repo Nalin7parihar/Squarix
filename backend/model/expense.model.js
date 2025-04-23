@@ -23,6 +23,15 @@ const expenseSchema = new mongoose.Schema({
       share: {
         type: Number,
       },
+      isSettled : {
+        type: Boolean,
+        default: false,
+      },
+      transactionId : {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Transactions",
+        default: null,
+      }
     },
   ],
   groupId: {
