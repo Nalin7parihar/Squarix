@@ -14,10 +14,16 @@ const groupSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Users"
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  totalExpense : {
+    type : Number,
+    default : 0
+  },
+  expenses : [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Expense"
+    }
+  ],
 });
 
 const group =  mongoose.model("Group",groupSchema);

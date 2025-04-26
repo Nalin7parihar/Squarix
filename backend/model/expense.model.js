@@ -43,6 +43,14 @@ const expenseSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  category : {
+    type : String,
+    required : true
+  },
+  reciept : {
+    type: String,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

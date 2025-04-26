@@ -11,15 +11,17 @@ const friendSchema = new mongoose.Schema({
     ref: "Users",
     required: true,
   },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  status : {
-    type : String,
-    enum : ["pending", "accepted", "rejected"]
-  },
-});
+  transactions: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Transactions",
+    },
+  ],
+}, { timestamps: true });
+
+// Unique constraint on (user, friend) pair
+friendSchema.index({ user: 1, friend: 1 }, { unique: true });
 
 const Friend = mongoose.model("Friend", friendSchema);
+
 export default Friend;
