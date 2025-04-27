@@ -1,7 +1,7 @@
 import Expense from "../model/expense.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import group from "../model/group.model.js";
-import group from "../model/group.model.js";
+
 const getUserExpenses = async (req,res) => {
   try {
     const {id} = req.user;
@@ -37,10 +37,10 @@ const addExpense = async (req,res) => {
     
     const expense = await Expense.create({title,amount,senderId : id,participants,groupId,isGroupExpense,category,reciept});
     if(isGroupExpense){
-      const group = await group.findById(groupId);
-      group.totalExpense += amount;
-      group.expense.push(expense._id);
-      await group.save();
+      const groupDoc = await group.findById(groupId);
+      groupDoc.totalExpense += amount;
+      groupDoc.expense.push(expense._id);
+      await groupDoc.save();
     }
     if(!expense) return res.status(400).json({message : "Error in creating expense"});
     return res.status(201).json({message : "Expense created successfully",expense});
@@ -223,11 +223,11 @@ const deleteExpense = async (req,res) => {
     if(expense.senderId.toString() !== id) return res.status(403).json({message : "You are not authorized to delete this expense"});
     const isGroupExpense = expense.isGroupExpense;
     if(isGroupExpense) {
-      const group = await group.findById(expense.groupId);
-      if(!group) return res.status(404).json({message : "Group not found"});
-      group.totalExpense -= expense.amount;
-      group.expenses = group.expenses.filter(exp => exp.toString() !== expenseId);
-      await group.save();
+      const groupDoc = await group.findById(expense.groupId);
+      if(!groupDoc) return res.status(404).json({message : "Group not found"});
+      groupDoc.totalExpense -= expense.amount;
+      groupDoc.expenses = groupDoc.expenses.filter(exp => exp.toString() !== expenseId);
+      await groupDoc.save();
     }
     await Expense.findByIdAndDelete(expenseId);
     return res.status(200).json({message : "Expense deleted successfully"});

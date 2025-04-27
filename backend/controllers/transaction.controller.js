@@ -166,7 +166,7 @@ const filterTransactions = async (req,res) => {
       const startDate = new Date(date[0]);
       const endDate = new Date(date[1]);
       const transactions = await Transactions.find({date : {$gte : startDate,$lte :endDate}}).populate("senderId ","name");
-      if(!transactions.length() === 0) {
+      if(transactions.length === 0) {
         return res.status(404).json({message : "Transactions not found"});
       }
       return res.status(200).json({message : "Transactions found",transactions});
