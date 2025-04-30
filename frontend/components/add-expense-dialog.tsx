@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { CalendarIcon, Receipt, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -20,13 +20,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
+import { useExpenses } from "@/contexts"
 
-// Sample data for friends
+// Sample data for friends with proper MongoDB ObjectId strings
 const friends = [
-  { id: 1, name: "Alex Johnson" },
-  { id: 2, name: "Taylor Smith" },
-  { id: 3, name: "Jordan Lee" },
-  { id: 4, name: "Casey Wilson" },
+  { id: "662f7f6cbd5aa1c9c3b0de01", name: "Alex Johnson" },
+  { id: "662f7f6cbd5aa1c9c3b0de02", name: "Taylor Smith" },
+  { id: "662f7f6cbd5aa1c9c3b0de03", name: "Jordan Lee" },
+  { id: "662f7f6cbd5aa1c9c3b0de04", name: "Casey Wilson" },
 ]
 
 // Sample data for expense categories
@@ -47,15 +48,19 @@ interface AddExpenseDialogProps {
 }
 
 export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialogProps) {
+  const { addExpense } = useExpenses()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const [selectedFriends, setSelectedFriends] = useState<number[]>([1, 2])
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([])
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
   const [category, setCategory] = useState("1")
   const [paidBy, setPaidBy] = useState("you")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [hasReceipt, setHasReceipt] = useState(false)
 
-  const toggleFriend = (friendId: number) => {
+  const toggleFriend = (friendId: string) => {
     if (selectedFriends.includes(friendId)) {
       setSelectedFriends(selectedFriends.filter((id) => id !== friendId))
     } else {
@@ -63,23 +68,43 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!description || !amount) return
 
     setIsSubmitting(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      const data = {
-        description,
-        amount,
-        date,
-        category: categories.find((c) => c.id.toString() === category)?.name,
-        paidBy: paidBy === "you" ? "You" : friends.find((f) => f.id.toString() === paidBy)?.name,
-        participants: selectedFriends.map((id) => friends.find((f) => f.id === id)?.name || ""),
+    
+    try {
+      const formData = new FormData()
+      formData.append('title', description)
+      formData.append('amount', amount)
+      formData.append('category', categories.find(c => c.id.toString() === category)?.name || '')
+      formData.append('date', date?.toISOString() || new Date().toISOString())
+      
+      // Add participants data with ObjectId strings
+      const participants = selectedFriends.map(friendId => ({
+        user: friends.find(f => f.id === friendId)?.id, // This is now a MongoDB ObjectId string
+        share: Number(amount) / (selectedFriends.length + 1),
+        isSettled: false
+      }))
+      
+      formData.append('participants', JSON.stringify(participants))
+      
+      if (hasReceipt && fileInputRef.current?.files?.[0]) {
+        formData.append('reciept', fileInputRef.current.files[0])
       }
 
-      if (onSave) onSave(data)
+      await addExpense(formData)
+      
+      if (onSave) {
+        onSave({
+          description,
+          amount,
+          date,
+          category: categories.find((c) => c.id.toString() === category)?.name,
+          paidBy: paidBy === "you" ? "You" : friends.find((f) => f.id.toString() === paidBy)?.name,
+          participants: selectedFriends.map((id) => friends.find((f) => f.id === id)?.name || ""),
+        })
+      }
 
       // Reset form
       setDescription("")
@@ -87,9 +112,16 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
       setDate(new Date())
       setCategory("1")
       setPaidBy("you")
-      setSelectedFriends([1, 2])
+      setSelectedFriends([]) // Reset to empty array instead of hardcoded IDs
+      setHasReceipt(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (error) {
+      console.error('Error adding expense:', error)
+    } finally {
       setIsSubmitting(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -181,7 +213,6 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
                     onClick={() => toggleFriend(friend.id)}
                   >
                     <Avatar className="h-5 w-5">
-                      
                       <AvatarFallback className="text-[10px]">
                         {friend.name
                           .split(" ")
@@ -219,15 +250,28 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
           <div className="flex items-center gap-2">
             <Checkbox
               id="receipt"
+              checked={hasReceipt}
+              onCheckedChange={(checked) => setHasReceipt(checked as boolean)}
               className="transition-all duration-200 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
             />
-            <Label htmlFor="receipt" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="reciept" className="text-sm font-normal cursor-pointer">
               <div className="flex items-center gap-1">
                 <Receipt className="h-4 w-4" />
                 Add a receipt image
               </div>
             </Label>
           </div>
+          {hasReceipt && (
+            <div className="grid gap-2">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="cursor-pointer"
+                name="reciept"
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button

@@ -1,46 +1,65 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
-import { motion } from "framer-motion"
-import Header from "@/components/header"
-import Sidebar from "@/components/sidebar"
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts';
+import  Sidebar  from '@/components/sidebar';
+import  Header  from '@/components/header';
+import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 
 export default function AuthenticatedLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const pathname = usePathname()
-  const [isMounted, setIsMounted] = useState(false)
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    // If loading is finished and user is not authenticated, redirect to auth page
+    if (!isLoading && !isAuthenticated) {
+      router.push('/auth');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
-  if (!isMounted) {
-    return null
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-background">
+        <div className="w-64 border-r p-4 space-y-4">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+        <div className="flex-1 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
+          <main className="flex-1 p-6">
+            <Skeleton className="h-64 w-full" />
+          </main>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Header />
-      <div className="flex flex-1">
+  // If authenticated, render the layout with sidebar, header, and children
+  if (isAuthenticated && user) {
+    return (
+      <div className="flex h-screen bg-background">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="p-4 md:p-6"
-          >
+        <div className="flex-1 flex flex-col">
+          <Header />
+          <main className="flex-1 overflow-y-auto p-6">
             {children}
-          </motion.div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
-  )
+    );
+  }
+
+  // Fallback (should ideally not be reached if logic is correct)
+  return null;
 }

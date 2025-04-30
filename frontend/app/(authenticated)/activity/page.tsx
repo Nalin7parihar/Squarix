@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ExpenseList } from "@/components/expense-list"
 import { 
   Select, 
@@ -48,41 +48,93 @@ import {
   X 
 } from "lucide-react"
 import { format } from "date-fns"
+import { useExpenses } from "@/contexts"
 
 export default function ActivityPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const { filterExpenses } = useExpenses()
   const [activeTab, setActiveTab] = useState("all")
-  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [isLoading, setIsLoading] = useState(false)
   const [filters, setFilters] = useState<string[]>([])
-  const [timePeriod, setTimePeriod] = useState("all")
-  
-  const handleRefresh = () => {
-    setIsLoading(true)
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1500)
-  }
-  
+  const [timePeriod, setTimePeriod] = useState<string>("all")
+  const [date, setDate] = useState<Date>()
+
+  // Handle tab changes
+  useEffect(() => {
+    const loadExpenses = async () => {
+      setIsLoading(true)
+      try {
+        await filterExpenses({ type: activeTab !== 'all' ? activeTab : undefined })
+      } catch (error) {
+        console.error('Error filtering expenses:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadExpenses()
+  }, [activeTab, filterExpenses])
+
+  // Handle time period changes
+  useEffect(() => {
+    const loadExpenses = async () => {
+      if (timePeriod === 'all') return
+      setIsLoading(true)
+      try {
+        await filterExpenses({ timePeriod })
+      } catch (error) {
+        console.error('Error filtering expenses:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadExpenses()
+  }, [timePeriod, filterExpenses])
+
+  // Handle date selection
+  useEffect(() => {
+    const loadExpenses = async () => {
+      if (!date) return
+      setIsLoading(true)
+      try {
+        await filterExpenses({ date: date.toISOString() })
+      } catch (error) {
+        console.error('Error filtering expenses:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadExpenses()
+  }, [date, filterExpenses])
+
   const addFilter = (filter: string) => {
     if (!filters.includes(filter)) {
       setFilters([...filters, filter])
     }
   }
-  
+
   const removeFilter = (filter: string) => {
     setFilters(filters.filter(f => f !== filter))
   }
-  
+
+  const handleRefresh = async () => {
+    setIsLoading(true)
+    try {
+      await filterExpenses({})
+    } catch (error) {
+      console.error('Error refreshing expenses:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
-    <div className="container mx-auto max-w-5xl py-6 space-y-8">
-      <div className="flex flex-col gap-2">
+    <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex flex-col gap-4 p-4 md:p-6">
         <h1 className="text-3xl font-bold tracking-tight">Activity</h1>
         <p className="text-muted-foreground">Track and manage all your shared expenses</p>
       </div>
       
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center px-4 md:px-6">
           <div className="flex flex-wrap gap-2 items-center">
             {filters.map(filter => (
               <Badge key={filter} variant="secondary" className="px-2 py-1">
@@ -108,8 +160,6 @@ export default function ActivityPage() {
           </div>
           
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            
-            
             <Select
               value={timePeriod}
               onValueChange={setTimePeriod}
@@ -190,74 +240,66 @@ export default function ActivityPage() {
           </div>
         </div>
         
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <div className="border-b">
-            <TabsList className="w-full justify-start h-12 bg-transparent p-0">
-              <TabsTrigger 
-                value="all" 
-                className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
-              >
-                All Expenses
-              </TabsTrigger>
-              <TabsTrigger 
-                value="youowe" 
-                className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
-              >
-                You Owe
-              </TabsTrigger>
-              <TabsTrigger 
-                value="owedtoyou" 
-                className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
-              >
-                Owed To You
-              </TabsTrigger>
-              <TabsTrigger 
-                value="settled" 
-                className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
-              >
-                Settled
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          
-          <TabsContent value="all" className="pt-6 animate-in fade-in-50 duration-300">
-            <ExpenseList isLoading={isLoading} />
-          </TabsContent>
-          
-          <TabsContent value="youowe" className="pt-6 animate-in fade-in-50 duration-300">
-            <Card>
-              <CardHeader>
-                <CardTitle>Expenses You Owe</CardTitle>
-                <CardDescription>Expenses where you need to pay others</CardDescription>
-              </CardHeader>
-              <CardContent className="h-48 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-muted-foreground">No expenses found</p>
-                  <p className="text-sm text-muted-foreground">You don't owe anyone right now.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="owedtoyou" className="pt-6 animate-in fade-in-50 duration-300">
-            <ExpenseList isLoading={isLoading} />
-          </TabsContent>
-          
-          <TabsContent value="settled" className="pt-6 animate-in fade-in-50 duration-300">
-            <Card>
-              <CardHeader>
-                <CardTitle>Settled Expenses</CardTitle>
-                <CardDescription>Expenses that have been fully settled</CardDescription>
-              </CardHeader>
-              <CardContent className="h-48 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-muted-foreground">No settled expenses found</p>
-                  <p className="text-sm text-muted-foreground">Settled expenses will appear here.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <div className="px-4 md:px-6">
+          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+            <div className="border-b">
+              <TabsList className="w-full justify-start h-12 bg-transparent p-0">
+                <TabsTrigger 
+                  value="all" 
+                  className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
+                >
+                  All Expenses
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="youowe" 
+                  className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
+                >
+                  You Owe
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="owedtoyou" 
+                  className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
+                >
+                  Owed To You
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="settled" 
+                  className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none px-4 h-12 border-b-2 border-transparent"
+                >
+                  Settled
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="all" className="pt-6 animate-in fade-in-50 duration-300">
+              <ExpenseList isLoading={isLoading} />
+            </TabsContent>
+            
+            <TabsContent value="youowe" className="pt-6 animate-in fade-in-50 duration-300">
+              <ExpenseList 
+                isLoading={isLoading}
+                title="Expenses You Owe"
+                description="Expenses where you need to pay others"
+              />
+            </TabsContent>
+            
+            <TabsContent value="owedtoyou" className="pt-6 animate-in fade-in-50 duration-300">
+              <ExpenseList 
+                isLoading={isLoading}
+                title="Expenses Owed To You"
+                description="Expenses where others need to pay you"
+              />
+            </TabsContent>
+            
+            <TabsContent value="settled" className="pt-6 animate-in fade-in-50 duration-300">
+              <ExpenseList 
+                isLoading={isLoading}
+                title="Settled Expenses"
+                description="Expenses that have been fully settled"
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   )

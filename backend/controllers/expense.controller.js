@@ -17,8 +17,10 @@ const getUserExpenses = async (req,res) => {
 const addExpense = async (req,res) => {
   try {
     const {id} = req.user;
-    const {title,amount,participants,groupId,category}= req.body;
+    const {title,amount,groupId,category}= req.body;
+    let {participants} = req.body;
     if(!title || !amount || !participants) return res.status(400).json({message : "Please provide all the fields"});
+    participants = JSON.parse(participants);
     const isGroupExpense = groupId ? true : false;
 
     let reciept = null;

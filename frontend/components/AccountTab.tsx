@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,12 +9,56 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { LogOut } from "lucide-react"
+import { useAuth } from "@/contexts"
+import { toast } from "sonner"
 
 interface Props {
   isLoading: boolean
 }
 
 function AccountTab({ isLoading }: Props) {
+  const { deleteAccount, updatePassword } = useAuth()
+  const [passwords, setPasswords] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  })
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const handleDelete = async () => {
+    await deleteAccount()
+  }
+
+  const handleUpdatePassword = async () => {
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      toast.error("New passwords do not match")
+      return
+    }
+
+    if (!passwords.oldPassword || !passwords.newPassword) {
+      toast.error("Please fill in all password fields")
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      await updatePassword({
+        oldPassword: passwords.oldPassword,
+        newPassword: passwords.newPassword
+      })
+      // Reset form (though user will be redirected after password update)
+      setPasswords({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      })
+    } catch (error) {
+      console.error("Password update error:", error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -35,17 +80,46 @@ function AccountTab({ isLoading }: Props) {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
+                  <Input 
+                    id="current-password" 
+                    type="password"
+                    value={passwords.oldPassword}
+                    onChange={(e) => setPasswords(prev => ({
+                      ...prev,
+                      oldPassword: e.target.value
+                    }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
+                  <Input 
+                    id="new-password" 
+                    type="password"
+                    value={passwords.newPassword}
+                    onChange={(e) => setPasswords(prev => ({
+                      ...prev,
+                      newPassword: e.target.value
+                    }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
+                  <Input 
+                    id="confirm-password" 
+                    type="password"
+                    value={passwords.confirmPassword}
+                    onChange={(e) => setPasswords(prev => ({
+                      ...prev,
+                      confirmPassword: e.target.value
+                    }))}
+                  />
                 </div>
-                <Button>Update Password</Button>
+                <Button 
+                  onClick={handleUpdatePassword}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? "Updating..." : "Update Password"}
+                </Button>
               </div>
             </div>
 
@@ -74,9 +148,13 @@ function AccountTab({ isLoading }: Props) {
                   <p className="text-sm text-red-700 dark:text-red-400">
                     Once you delete your account, there is no going back. This action cannot be undone.
                   </p>
-                  <Button variant="outline" className="mt-2 w-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 md:w-auto">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Delete Account
+                  <Button variant="outline" className="mt-2 w-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 md:w-auto" onClick={handleDelete} disabled={isLoading}>
+                    {isLoading ? "Deleting..." : (
+                      <>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Delete Account
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

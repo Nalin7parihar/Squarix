@@ -11,22 +11,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuLabel 
 } from "@/components/ui/dropdown-menu"
 import { toast } from 'sonner';
+import { useAuth } from "@/contexts"; // Import useAuth
+import { useRouter } from "next/navigation";
 
 
 const Header = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(true) // Set to true for demo purposes
-  const handleLogout = () => {
-    toast.info("Logging out", {
-      description: "You have been logged out successfully.",
-      duration: 3000
-    })
-    // In a real app, this would redirect to login page
-    setIsLoggedIn(false)
-    // window.location.href = "/login"
-  }
+  const { user, logout, isLoading } = useAuth(); // Use the hook
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    // Redirect handled within logout function in AuthContext
+  };
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur-sm transition-all duration-200 md:px-6">
     <Sheet>
@@ -101,37 +102,38 @@ const Header = () => {
         <span className="sr-only">Notifications</span>
       </Button>
       <div className="flex items-center space-x-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 rounded-full" size="icon">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
-                      <AvatarFallback className="bg-primary/10 text-primary">JD</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">John Doe</p>
-                      <p className="text-xs text-muted-foreground">john.doe@example.com</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <Link href="/settings">
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  </Link>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        {user && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  {/* Add AvatarImage if user has profile picture URL */}
+                  {/* <AvatarImage src={user.profilePictureUrl} alt={user.name} /> */}
+                  <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{user.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} disabled={isLoading}>
+                {isLoading ? 'Logging out...' : 'Log out'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   </header>
   )

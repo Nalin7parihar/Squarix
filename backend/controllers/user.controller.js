@@ -86,4 +86,36 @@ const getUsers=  async (req,res) => {
       console.log(error);
     }
 }
-export {userLogin,userRegister,userUpdatePassword,userDeleteAccount,getUsers};
+
+const userLogout = (req, res) => {
+  try {
+    res.cookie("token", "", {
+      httpOnly: true,
+      expires: new Date(0), // Expire the cookie immediately
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    return res.status(200).json({ message: "Logout Successful" });
+  } catch (error) {
+    console.log("Logout Error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+const getCurrentUser = async (req, res) => {
+  try {
+    // req.user is populated by the verifyToken middleware
+    const user = await users.findById(req.user.id).select("-password"); // Exclude password
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.status(200).json(user);
+  } catch (error) {
+    console.log("Get Current User Error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+
+export {userLogin,userRegister,userUpdatePassword,userDeleteAccount,getUsers, userLogout, getCurrentUser};

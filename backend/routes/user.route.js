@@ -1,12 +1,18 @@
 import express from "express";
+import { userLogin, userRegister, userUpdatePassword, userDeleteAccount, getUsers, userLogout, getCurrentUser } from "../controllers/user.controller.js";
 import verifyToken from "../middleware/auth.js";
-import { userLogin,userRegister,userUpdatePassword,userDeleteAccount,getUsers } from "../controllers/user.controller.js";
-const userRouter = express.Router();
+const router = express.Router();
 
-userRouter.post("/register",userRegister);
-userRouter.post("/login",userLogin);
-userRouter.patch("/updatePassword",verifyToken,userUpdatePassword);
-userRouter.delete("/deleteAccount",verifyToken,userDeleteAccount);
-userRouter.get("/getUsers",verifyToken,getUsers);
+// Public routes
+router.post("/register", userRegister);
+router.post("/login", userLogin);
 
-export default userRouter;
+// Protected routes
+router.use(verifyToken);
+router.get("/me", getCurrentUser);
+router.put("/updatePassword", userUpdatePassword);
+router.delete("/deleteAccount", userDeleteAccount);
+router.post("/logout", userLogout);
+router.get("/users", getUsers);
+
+export default router;
