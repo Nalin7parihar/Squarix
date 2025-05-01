@@ -3,6 +3,7 @@ import { Skeleton } from "./ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {motion} from 'framer-motion';
+
 const PeopleCard = ({ title, description, isLoading, friends, type, handleSettleUp }: any) => (
   <Card>
     <CardHeader>
@@ -32,7 +33,7 @@ const PeopleCard = ({ title, description, isLoading, friends, type, handleSettle
       ) : (
         friends.map((friend: any, index: number) => (
           <motion.div
-            key={friend.id}
+            key={`${friend.transactionId || friend.id}-${index}`}
             className="flex items-center justify-between rounded-lg p-3 transition-all duration-200 hover:bg-muted/50"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

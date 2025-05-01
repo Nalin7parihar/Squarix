@@ -1,32 +1,36 @@
 import { NextResponse } from 'next/server';
+import { API_URL } from '@/lib/config';
 
-// In a real app, you would import these functions
-// import { verifyJWT } from '@/lib/auth';
-// import { getUserById } from '@/models/user';
-
-export async function GET(request: Request) { // Added request parameter
+export async function GET(request: Request) {
   try {
-    // TODO: Forward request to the backend endpoint that verifies the session/token
-    // The backend will read the HttpOnly cookie sent automatically by the browser
+    // Forward request to the backend endpoint that verifies the session/token
+    const response = await fetch(`${API_URL}/api/user/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || '',
+      },
+      credentials: 'include',
+    });
 
-    // Simulate a user object that would come from the backend response
-    // This assumes the request was successfully authenticated by the backend
-    const user = {
-      id: '1',
-      name: 'Nalin Parihar',
-      email: 'nalin@example.com', // Example email
-      // Never include password in the response
-    };
-    
+    if (!response.ok) {
+      return NextResponse.json(
+        { message: 'Authentication failed' },
+        { status: response.status }
+      );
+    }
+
+    // Get the user data from the backend response
+    const userData = await response.json();
+
     // Return the user data
-    return NextResponse.json({ user });
-    
+    return NextResponse.json(userData);
+
   } catch (error) {
     console.error('Authentication check error:', error);
-    // If the backend request fails (e.g., invalid cookie), it should return the 401
     return NextResponse.json(
       { message: 'Authentication failed' },
-      { status: 401 } // Or potentially 500 if it's an internal error
+      { status: 401 }
     );
   }
 }

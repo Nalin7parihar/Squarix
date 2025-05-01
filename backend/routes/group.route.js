@@ -5,11 +5,11 @@ import verifyToken from "../middleware/auth.js";
 const router = express.Router();
 
 // Group routes
-router.post("/create", verifyToken, createGroup);
+router.post("/", verifyToken, createGroup); // Changed from /create
 router.get("/details/:groupId", verifyToken, getGroupDetails);
-router.get("/all", verifyToken, getAllGroups);
-router.post("/add-member/:groupId", verifyToken, addMemberToGroup);
-router.delete("/remove-member/:groupId", verifyToken, removeMemberFromGroup);
-router.delete("/delete/:groupId", verifyToken, deleteGroup);
+router.get("/", verifyToken, getAllGroups); // Changed from /all
+router.post("/:groupId/members", verifyToken, addMemberToGroup); // Changed from /add-member/:groupId
+router.delete("/:groupId/members", verifyToken, removeMemberFromGroup); // Changed from /remove-member/:groupId
+router.delete("/:groupId", verifyToken, deleteGroup); // Changed from /delete/:groupId
 
 export default router;

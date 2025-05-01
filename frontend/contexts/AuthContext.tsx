@@ -3,6 +3,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/config';
 
 export interface User {
   _id: string;
@@ -32,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchCurrentUser = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/user/me`, {
+      const res = await fetch(`${API_URL}/api/user/me`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -63,21 +64,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: any) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/user/login`, {
+      const res = await fetch(`${API_URL}/api/user/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(credentials),
-        credentials: 'include', // Send cookies
+        credentials: 'include',
       });
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.user) {
+        setUser(data.user); // Set user directly from login response
         toast.success(data.message || 'Login successful');
-        await fetchCurrentUser(); // Fetch user data after login
-        router.push('/dashboard'); // Redirect to dashboard
+        
+        // Use router.push with a slight delay to ensure state is updated
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 100);
       } else {
         toast.error(data.message || 'Login failed');
         setUser(null);
@@ -94,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = async (userData: any) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/user/register`, {
+      const res = await fetch(`${API_URL}/api/user/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,10 +112,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (res.ok) {
         toast.success(data.message || 'Registration successful');
-        // Optionally log the user in directly after registration
-        // await login({ email: userData.email, password: userData.password });
-        // Or redirect to login page
-         router.push('/auth'); // Redirect to login page after registration
+        // Automatically log in after registration
+        await login({ email: userData.email, password: userData.password });
       } else {
         toast.error(data.message || 'Registration failed');
       }
@@ -125,7 +128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/user/logout`, {
+      const res = await fetch(`${API_URL}/api/user/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -157,7 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/user/deleteAccount`, {
+      const res = await fetch(`${API_URL}/api/user/deleteAccount`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updatePassword = async (passwordData: { oldPassword: string; newPassword: string }) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/user/updatePassword`, {
+      const res = await fetch(`${API_URL}/api/user/updatePassword`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

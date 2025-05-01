@@ -1,15 +1,24 @@
 "use client";
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/config';
 
 interface Expense {
   id: string;
   title: string;
   amount: number;
-  senderId: string;
+  senderId: {
+    _id: string;
+    name: string;
+    email: string;
+  } | string;
   participants: Array<{
-    user: string;
+    user: {
+      _id: string;
+      name: string;
+      email: string;
+    } | string;
     share: number;
     isSettled: boolean;
     transactionId: string | null;
@@ -47,11 +56,10 @@ const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 
 export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
-  const getExpenses = async () => {
+  const getExpenses = useCallback(async () => {
     try {
-      const response = await fetch(`${baseUrl}/api/expenses/getExpenses`, {
+      const response = await fetch(`${API_URL}/api/expenses/getExpenses`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch expenses');
@@ -59,30 +67,34 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       setExpenses(data.expenses);
     } catch (error) {
       console.error('Error fetching expenses:', error);
-      toast.error('Failed to fetch expenses');
     }
-  };
+  }, []);
 
-  const addExpense = async (formData: FormData) => {
+  const addExpense = useCallback(async (formData: FormData) => {
     try {
-      const response = await fetch(`${baseUrl}/api/expenses`, {
+      const response = await fetch(`${API_URL}/api/expenses`, {
         method: 'POST',
         credentials: 'include',
         body: formData
       });
-      if (!response.ok) throw new Error('Failed to add expense');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to add expense:', errorText);
+        throw new Error('Failed to add expense');
+      }
       const data = await response.json();
       setExpenses(prev => [...prev, data.expense]);
       toast.success('Expense added successfully');
+      await getExpenses();
     } catch (error) {
       console.error('Error adding expense:', error);
       toast.error('Failed to add expense');
     }
-  };
+  }, [getExpenses]);
 
-  const updateExpense = async (id: string, data: Partial<Expense>) => {
+  const updateExpense = useCallback(async (id: string, data: Partial<Expense>) => {
     try {
-      const response = await fetch(`${baseUrl}/api/expenses/${id}`, {
+      const response = await fetch(`${API_URL}/api/expenses/${id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -94,16 +106,17 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       const updatedExpense = await response.json();
       setExpenses(prev => prev.map(exp => exp.id === id ? updatedExpense : exp));
       toast.success('Expense updated successfully');
+      await getExpenses();
     } catch (error) {
       console.error('Error updating expense:', error);
       toast.error('Failed to update expense');
     }
-  };
+  }, [getExpenses]);
 
-  const getExpenseSummary = async (data: { amount: number; participants: any[]; senderId: string }): Promise<ExpenseSummary> => {
+  const getExpenseSummary = useCallback(async (data: { amount: number; participants: any[]; senderId: string }): Promise<ExpenseSummary> => {
     try {
-      const response = await fetch(`${baseUrl}/api/expenses/getSummary`, {
-        method: 'GET',
+      const response = await fetch(`${API_URL}/api/expenses/getSummary`, {
+        method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -118,12 +131,12 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to get expense summary');
       throw error;
     }
-  };
+  }, []);
 
-  const filterExpenses = async (filters: { timePeriod?: string; date?: string; type?: string }) => {
+  const filterExpenses = useCallback(async (filters: { timePeriod?: string; date?: string; type?: string }) => {
     try {
       const params = new URLSearchParams(filters as Record<string, string>);
-      const response = await fetch(`${baseUrl}/api/expenses/filter?${params}`, {
+      const response = await fetch(`${API_URL}/api/expenses/filter?${params}`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to filter expenses');
@@ -133,22 +146,23 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       console.error('Error filtering expenses:', error);
       toast.error('Failed to filter expenses');
     }
-  };
+  }, []);
 
-  const deleteExpense = async (id: string) => {
+  const deleteExpense = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`${baseUrl}/api/expenses/${id}`, {
+      const response = await fetch(`${API_URL}/api/expenses/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to delete expense');
       setExpenses(prev => prev.filter(exp => exp.id !== id));
       toast.success('Expense deleted successfully');
+      await getExpenses();
     } catch (error) {
       console.error('Error deleting expense:', error);
       toast.error('Failed to delete expense');
     }
-  };
+  }, [getExpenses]);
 
   const value = {
     expenses,

@@ -1,8 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: './.env' });  // Explicitly specifying the path
+
 import express from  'express';
 import cors from 'cors';
 import http from "http";
 import cookieParser from 'cookie-parser';
-import "dotenv/config"
 import connectDB from './config/mongoDB.js';
 import connectCloudinary from './config/cloudinary.js';
 import userRouter from './routes/user.route.js';

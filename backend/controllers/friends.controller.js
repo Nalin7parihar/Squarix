@@ -3,20 +3,26 @@ import users from "../model/user.model.js";
 
 const getFriends = async (req, res) => {
   try {
-    const { id } = req.user; // assuming req.user is available from auth middleware
+    const { id } = req.user;
 
     const friends = await Friend.find({ user: id })
-      .populate("friend") // populate friend details
-      .select("-__v");
+      .populate({
+        path: "friend",
+        select: "name email"
+      })
+      .lean();
 
-    if (!friends || friends.length === 0) {
-      return res.status(404).json({ message: "No friends found" });
+    if (!friends) {
+      return res.status(200).json([]); // Return empty array instead of 404
     }
 
     res.status(200).json(friends);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error('Error in getFriends:', error);
+    res.status(500).json({ 
+      message: "Internal server error",
+      error: error.message 
+    });
   }
 };
 

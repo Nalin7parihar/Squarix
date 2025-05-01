@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { toast } from 'sonner'
+import { API_URL } from '@/lib/config'
 
 // Types
 export interface Friend {
@@ -39,13 +40,14 @@ export interface Group {
 // Context state interface
 interface FriendsState {
   friends: Friend[]
+  setFriends: React.Dispatch<React.SetStateAction<Friend[]>>
   groups: Group[]
   isLoading: boolean
   addFriend: (name: string, email: string) => Promise<void>
   removeFriend: (id: string) => Promise<void>
   getFriends: () => Promise<void>
   createGroup: (name: string, description: string, members: string[]) => Promise<void>
-  addToGroup: (groupId: string, friendIds: string[]) => Promise<void>
+  addToGroup: (groupId: string, friendId: string) => Promise<void>
   removeFromGroup: (groupId: string, friendId: string) => Promise<void>
   deleteGroup: (groupId: string) => Promise<void>
   getGroups: () => Promise<void>
@@ -57,40 +59,49 @@ interface FriendsState {
 // Create context
 const FriendsContext = createContext<FriendsState | undefined>(undefined)
 
-// Provider props
-interface FriendsProviderProps {
-  children: ReactNode
-}
-
-export function FriendsProvider({ children }: FriendsProviderProps) {
+export function FriendsProvider({ children }: { children: ReactNode }) {
   const [friends, setFriends] = useState<Friend[]>([])
   const [groups, setGroups] = useState<Group[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Get all friends
+  // Load initial data
+  useEffect(() => {
+    getFriends()
+    getGroups()
+  }, [])
+
   const getFriends = async () => {
     setIsLoading(true)
     try {
-      // In production, real API call to get friends
-      // const response = await fetch('/api/friends', {
-      //   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      // })
-      // const data = await response.json()
-      // setFriends(data)
+      const response = await fetch(`${API_URL}/api/friends`, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        cache: 'no-store'
+      })
       
-      // For demo purposes, simulate fetching friends
-      await new Promise(resolve => setTimeout(resolve, 800))
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Failed to fetch friends:', errorText)
+        throw new Error('Failed to fetch friends')
+      }
       
-      // Mock data
-      const mockFriends: Friend[] = [
-        { id: '1', name: 'Alex Johnson', email: 'alex@example.com', totalOwed: 125.5, totalOwes: 0 },
-        { id: '2', name: 'Jamie Smith', email: 'jamie@example.com', totalOwed: 0, totalOwes: 75.0 },
-        { id: '3', name: 'Taylor Wilson', email: 'taylor@example.com', totalOwed: 45.75, totalOwes: 0 },
-        { id: '4', name: 'Morgan Lee', email: 'morgan@example.com', totalOwed: 0, totalOwes: 12.25 },
-        { id: '5', name: 'Casey Brooks', email: 'casey@example.com', totalOwed: 195.0, totalOwes: 0 },
-      ]
+      const data = await response.json()
+      if (!Array.isArray(data)) {
+        console.error('Unexpected friends data format:', data)
+        throw new Error('Invalid friends data format')
+      }
       
-      setFriends(mockFriends)
+      const transformedFriends = data.map((friend: any) => ({
+        id: friend.friend._id,
+        name: friend.friend.name,
+        email: friend.friend.email,
+        totalOwed: 0,
+        totalOwes: 0
+      }))
+      
+      setFriends(transformedFriends)
     } catch (error) {
       console.error('Failed to fetch friends:', error)
       toast.error('Failed to load friends')
@@ -99,37 +110,31 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Add a new friend
   const addFriend = async (name: string, email: string) => {
     setIsLoading(true)
     try {
-      // In production, real API call to add friend
-      // const response = await fetch('/api/friends', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify({ name, email })
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate adding friend
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // Create mock friend with ID
+      const response = await fetch(`${API_URL}/api/friends`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ email }),
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to add friend')
+
+      const data = await response.json()
       const newFriend: Friend = {
-        id: Math.random().toString(36).substring(2, 9),
-        name,
+        id: data.newFriend.friend,
+        name: name || email.split('@')[0],
         email,
         totalOwed: 0,
-        totalOwes: 0,
+        totalOwes: 0
       }
       
       setFriends(prev => [...prev, newFriend])
-      toast.success('Friend added successfully', {
-        description: `${name} has been added to your friends.`
-      })
+      toast.success('Friend added successfully')
     } catch (error) {
       console.error('Failed to add friend:', error)
       toast.error('Failed to add friend')
@@ -139,24 +144,20 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Remove a friend
   const removeFriend = async (id: string) => {
     setIsLoading(true)
     try {
-      // In production, real API call to remove friend
-      // await fetch(`/api/friends/${id}`, {
-      //   method: 'DELETE',
-      //   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      // })
-      
-      // For demo purposes, simulate removing friend
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
+      const response = await fetch(`${API_URL}/api/friends/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to remove friend')
+
       const friendToRemove = friends.find(f => f.id === id)
-      
       setFriends(prev => prev.filter(friend => friend.id !== id))
       
-      // Also remove friend from all groups
+      // Remove from all groups as well
       setGroups(prev => prev.map(group => ({
         ...group,
         members: group.members.filter(memberId => memberId !== id)
@@ -174,83 +175,26 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Get all groups
   const getGroups = async () => {
     setIsLoading(true)
     try {
-      // In production, real API call to get groups
-      // const response = await fetch('/api/groups', {
-      //   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      // })
-      // const data = await response.json()
-      // setGroups(data)
+      const response = await fetch(`${API_URL}/api/groups`, {
+        credentials: 'include',
+        cache: 'no-store'
+      })
+      if (!response.ok) throw new Error('Failed to fetch groups')
+      const data = await response.json()
       
-      // For demo purposes, simulate fetching groups
-      await new Promise(resolve => setTimeout(resolve, 800))
+      const transformedGroups: Group[] = data.groups.map((group: any) => ({
+        id: group._id,
+        name: group.name,
+        description: group.description || '',
+        members: group.members.map((member: any) => member._id),
+        expenses: group.expenses || [],
+        totalExpenses: group.totalExpense || 0
+      }))
       
-      // Mock data
-      const mockGroups: Group[] = [
-        {
-          id: '1',
-          name: 'Roommates',
-          description: 'Apartment expenses',
-          members: ['1', '3', '4'],
-          expenses: [
-            {
-              id: '1',
-              description: 'Rent - May',
-              amount: 1500,
-              paidBy: '1',
-              date: '2023-05-01',
-              splitBetween: ['1', '3', '4'],
-            },
-            {
-              id: '2',
-              description: 'Groceries',
-              amount: 120,
-              paidBy: '3',
-              date: '2023-05-10',
-              splitBetween: ['1', '3', '4'],
-            },
-            {
-              id: '3',
-              description: 'Utilities',
-              amount: 90,
-              paidBy: '4',
-              date: '2023-05-15',
-              splitBetween: ['1', '3', '4'],
-            },
-          ],
-          totalExpenses: 1710,
-        },
-        {
-          id: '2',
-          name: 'Trip to NYC',
-          description: 'Vacation expenses',
-          members: ['2', '5'],
-          expenses: [
-            {
-              id: '1',
-              description: 'Hotel',
-              amount: 800,
-              paidBy: '5',
-              date: '2023-06-01',
-              splitBetween: ['2', '5'],
-            },
-            {
-              id: '2',
-              description: 'Dinner',
-              amount: 150,
-              paidBy: '2',
-              date: '2023-06-02',
-              splitBetween: ['2', '5'],
-            },
-          ],
-          totalExpenses: 950,
-        },
-      ]
-      
-      setGroups(mockGroups)
+      setGroups(transformedGroups)
     } catch (error) {
       console.error('Failed to fetch groups:', error)
       toast.error('Failed to load groups')
@@ -259,32 +203,26 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Create a new group
   const createGroup = async (name: string, description: string, members: string[]) => {
     setIsLoading(true)
     try {
-      // In production, real API call to create group
-      // const response = await fetch('/api/groups', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify({ name, description, members })
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate creating group
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // Create mock group with ID
+      const response = await fetch(`${API_URL}/api/groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, members }),
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to create group')
+
+      const data = await response.json()
       const newGroup: Group = {
-        id: Math.random().toString(36).substring(2, 9),
-        name,
-        description,
-        members,
+        id: data.group._id,
+        name: data.group.name,
+        description: description || '',
+        members: data.group.members.map((m: any) => m._id),
         expenses: [],
-        totalExpenses: 0,
+        totalExpenses: 0
       }
       
       setGroups(prev => [...prev, newGroup])
@@ -300,57 +238,53 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Add friends to a group
-  const addToGroup = async (groupId: string, friendIds: string[]) => {
+  const addToGroup = async (groupId: string, friendId: string) => {
     setIsLoading(true)
     try {
-      // In production, real API call to add members to group
-      // await fetch(`/api/groups/${groupId}/members`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify({ memberIds: friendIds })
-      // })
-      
-      // For demo purposes, simulate adding to group
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
+      const response = await fetch(`${API_URL}/api/groups/${groupId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: friendId }),
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to add member to group')
+
       setGroups(prev => prev.map(group => {
         if (group.id === groupId) {
-          // Add only new members that aren't already in the group
-          const updatedMembers = [...new Set([...group.members, ...friendIds])]
-          return { ...group, members: updatedMembers }
+          return {
+            ...group,
+            members: [...group.members, friendId]
+          }
         }
         return group
       }))
       
       const groupName = groups.find(g => g.id === groupId)?.name
-      toast.success('Members added', {
-        description: `${friendIds.length} member(s) added to ${groupName}.`
+      const friendName = friends.find(f => f.id === friendId)?.name
+      toast.success('Member added', {
+        description: `${friendName} has been added to ${groupName}.`
       })
     } catch (error) {
       console.error('Failed to add to group:', error)
-      toast.error('Failed to add members to group')
+      toast.error('Failed to add member to group')
       throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Remove a friend from a group
   const removeFromGroup = async (groupId: string, friendId: string) => {
     setIsLoading(true)
     try {
-      // In production, real API call to remove member from group
-      // await fetch(`/api/groups/${groupId}/members/${friendId}`, {
-      //   method: 'DELETE',
-      //   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      // })
-      
-      // For demo purposes, simulate removing from group
-      await new Promise(resolve => setTimeout(resolve, 800))
+      const response = await fetch(`${API_URL}/api/groups/${groupId}/members`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: friendId }),
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to remove member from group')
       
       setGroups(prev => prev.map(group => {
         if (group.id === groupId) {
@@ -376,22 +310,19 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Delete a group
   const deleteGroup = async (groupId: string) => {
     setIsLoading(true)
     try {
-      // In production, real API call to delete group
-      // await fetch(`/api/groups/${groupId}`, {
-      //   method: 'DELETE',
-      //   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      // })
-      
-      // For demo purposes, simulate deleting group
-      await new Promise(resolve => setTimeout(resolve, 800))
+      const response = await fetch(`${API_URL}/api/groups/${groupId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to delete group')
       
       const groupToDelete = groups.find(g => g.id === groupId)
-      
       setGroups(prev => prev.filter(group => group.id !== groupId))
+      
       toast.success('Group deleted', {
         description: groupToDelete ? `${groupToDelete.name} has been deleted.` : undefined
       })
@@ -404,28 +335,23 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Add an expense to a group
   const addGroupExpense = async (groupId: string, expense: Omit<GroupExpense, 'id'>) => {
     setIsLoading(true)
     try {
-      // In production, real API call to add expense to group
-      // const response = await fetch(`/api/groups/${groupId}/expenses`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify(expense)
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate adding expense to group
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // Create mock expense with ID
+      // This endpoint will need to be implemented in the backend
+      const response = await fetch(`${API_URL}/api/groups/${groupId}/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expense),
+        credentials: 'include'
+      })
+
+      if (!response.ok) throw new Error('Failed to add expense to group')
+
+      const data = await response.json()
       const newExpense: GroupExpense = {
         ...expense,
-        id: Math.random().toString(36).substring(2, 9)
+        id: data.expense._id
       }
       
       setGroups(prev => prev.map(group => {
@@ -449,72 +375,53 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     }
   }
 
-  // Calculate balances for a group
   const calculateGroupBalances = (group: Group): GroupBalance[] => {
-    // Create a map to track how much each person has paid and owes
     const balances = new Map<string, number>()
-
-    // Initialize balances for all members
+    
     group.members.forEach(memberId => {
       balances.set(memberId, 0)
     })
 
-    // Calculate net balance for each member
     group.expenses.forEach(expense => {
       const payer = expense.paidBy
       const splitBetween = expense.splitBetween
       const amountPerPerson = expense.amount / splitBetween.length
 
-      // Add amount paid to payer's balance
       balances.set(payer, (balances.get(payer) || 0) + expense.amount)
-
-      // Subtract amount owed from each participant's balance
       splitBetween.forEach(memberId => {
         balances.set(memberId, (balances.get(memberId) || 0) - amountPerPerson)
       })
     })
 
-    // Create separate lists for creditors and debtors
     const debtors: { id: string, balance: number }[] = []
     const creditors: { id: string, balance: number }[] = []
 
-    // Separate people who owe money from those who are owed
     balances.forEach((balance, id) => {
       if (balance < -0.01) {
-        // Negative balance means they owe money
         debtors.push({ id, balance: -balance })
       } else if (balance > 0.01) {
-        // Positive balance means they are owed money
         creditors.push({ id, balance })
       }
     })
 
-    // Sort both lists by descending balance
     debtors.sort((a, b) => b.balance - a.balance)
     creditors.sort((a, b) => b.balance - a.balance)
 
-    // Final balances to return
     const result: GroupBalance[] = []
-
-    // Match debtors with creditors
+    
     debtors.forEach(debtor => {
       let remainingDebt = debtor.balance
-
+      
       for (let i = 0; i < creditors.length && remainingDebt > 0.01; i++) {
         const creditor = creditors[i]
-
         if (creditor.balance > 0.01) {
-          // Calculate how much of this debt can be settled with this creditor
           const amount = Math.min(remainingDebt, creditor.balance)
-
-          // Add to result
           result.push({
             fromId: debtor.id,
             toId: creditor.id,
-            amount: Number.parseFloat(amount.toFixed(2))
+            amount: Number(amount.toFixed(2))
           })
-
-          // Update remaining amounts
+          
           remainingDebt -= amount
           creditors[i].balance -= amount
         }
@@ -524,7 +431,6 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     return result
   }
 
-  // Search for friends and groups based on a search term
   const searchFriendsAndGroups = (term: string) => {
     const searchTerm = term.toLowerCase()
     
@@ -536,8 +442,7 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     
     const filteredGroups = groups.filter(
       group =>
-        group.name.toLowerCase().includes(searchTerm) ||
-        group.description.toLowerCase().includes(searchTerm)
+        group.name.toLowerCase().includes(searchTerm)
     )
     
     return { friends: filteredFriends, groups: filteredGroups }
@@ -547,6 +452,7 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
     <FriendsContext.Provider
       value={{
         friends,
+        setFriends,
         groups,
         isLoading,
         addFriend,

@@ -17,33 +17,53 @@ const userRegister = async (req, res) => {
   }
 }
 
-const userLogin=  async (req,res) => {
+const userLogin = async (req,res) => {
   const {email,password} = req.body;
   try {
     if(!email || !password) {
-      return res.status(400).json({message : "pls fill all the fields"});
+      return res.status(400).json({message : "Please fill all fields"});
     }
     const user = await users.findOne({email});
     if (!user) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
-    const isMatch = await bcrypt.compare(password,user.password);
-    if(!isMatch || !user) {
-      return res.status(400).json({message : "Invalid Credentials"});
+    const isMatch = await bcrypt.compare(password, user.password);
+    if(!isMatch) {
+      return res.status(400).json({message : "Invalid credentials"});
     }
-    const token = jwt.sign({id : user._id,name : user.email,password : user.password},process.env.JWT_SECRET,{expiresIn : "1d"});
-    res.cookie("token",token,{
-      httpOnly : true,
-      secure : process.env.NODE_ENV === "production",
-      sameSite : "strict",
-      maxAge : 24*60*60*1000 //1 day
-    })
 
-    return res.status(200).json({message : "Login Successfully",email : user.email,password : user.password,token});
+    // Create token with user info
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      "790802b77cd0623ec9a664507686153e5bbf235da748680bf5a6a21fed43bb034afb65393ba00e8ee579750f1102aa8cefcd091e8b7a030acb973527d61fbd72",
+      { expiresIn: "1d" }
+    );
+
+    // Set token in both cookie and response
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax", // Changed from strict to lax for cross-site requests
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
+
+    // Return user info without sensitive data
+    const userWithoutPassword = {
+      id: user._id,
+      name: user.name,
+      email: user.email
+    };
+
+    return res.status(200).json({
+      message: "Login successful",
+      user: userWithoutPassword,
+      token // Also send token in response for Bearer auth
+    });
   } catch (error) {
-    console.log(error);
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 const userUpdatePassword = async (req,res) => {
   const {oldPassword,newPassword} = req.body;

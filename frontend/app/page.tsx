@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   ArrowRight,
@@ -20,6 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts"
 
 // Replace the entire features array with this simplified version
 const features = [
@@ -46,8 +48,21 @@ const features = [
 ]
 
 // Remove the testimonials section entirely by replacing the entire LandingPage component with this streamlined version
- function LandingPage() {
+function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
+
+  // Remove the automatic redirection to allow access to landing page when logged in
+  // Only the buttons will conditionally redirect
+
+  // Handle Get Started button clicks to check auth status first
+  const handleGetStartedClick = (e: React.MouseEvent) => {
+    if (isAuthenticated) {
+      e.preventDefault()
+      router.push('/dashboard')
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -127,15 +142,21 @@ const features = [
           {/* Auth Buttons */}
           <div className="hidden gap-2 md:flex">
             <Button asChild>
-              <Link href="/auth" className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 hover:shadow-md hover:shadow-primary/20">
+              <Link 
+                href={isAuthenticated ? '/dashboard' : '/auth'} 
+                className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 hover:shadow-md hover:shadow-primary/20"
+              >
                 <LogIn className="h-4 w-4" />
-                Login
+                {isAuthenticated ? 'Dashboard' : 'Login'}
               </Link>
             </Button>
 
             <Button asChild>
-              <Link href="/auth" className="flex items-center bg-gradient-to-r from-primary to-primary/80 hover:shadow-md hover:shadow-primary/20">
-                Sign Up
+              <Link 
+                href={isAuthenticated ? '/dashboard' : '/auth?tab=signup'} 
+                className="flex items-center bg-gradient-to-r from-primary to-primary/80 hover:shadow-md hover:shadow-primary/20"
+              >
+                {isAuthenticated ? 'Dashboard' : 'Sign Up'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -175,15 +196,21 @@ const features = [
               </Link>
               <div className="flex gap-2 pt-2">
                 <Button asChild>
-                  <Link href="/auth" className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 hover:shadow-md hover:shadow-primary/20">
+                  <Link 
+                    href={isAuthenticated ? '/dashboard' : '/auth'} 
+                    className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 hover:shadow-md hover:shadow-primary/20"
+                  >
                     <LogIn className="h-4 w-4" />
-                    Login
+                    {isAuthenticated ? 'Dashboard' : 'Login'}
                   </Link>
                 </Button>
 
                 <Button asChild>
-                  <Link href="/auth?tab=signup" className="w-full bg-gradient-to-r from-primary to-primary/80">
-                    Sign Up
+                  <Link 
+                    href={isAuthenticated ? '/dashboard' : '/auth?tab=signup'} 
+                    className="w-full bg-gradient-to-r from-primary to-primary/80"
+                  >
+                    {isAuthenticated ? 'Dashboard' : 'Sign Up'}
                   </Link>
                 </Button>
               </div>
@@ -224,8 +251,11 @@ const features = [
                     size="lg"
                     className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg hover:shadow-primary/20"
                   >
-                    <Link href="/auth?tab=signup">
-                      Get Started
+                    <Link 
+                      href={isAuthenticated ? '/dashboard' : '/auth?tab=signup'}
+                      onClick={handleGetStartedClick}
+                    >
+                      {isAuthenticated ? 'Go to Dashboard' : 'Get Started'}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
@@ -401,8 +431,11 @@ const features = [
                 size="lg"
                 className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg hover:shadow-primary/20"
               >
-                <Link href="/auth?tab=signup">
-                  Start Splitting Expenses
+                <Link 
+                  href={isAuthenticated ? '/dashboard' : '/auth?tab=signup'}
+                  onClick={handleGetStartedClick}
+                >
+                  {isAuthenticated ? 'Go to Dashboard' : 'Start Splitting Expenses'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -454,13 +487,18 @@ const features = [
                     size="lg"
                     className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg hover:shadow-primary/20"
                   >
-                    <Link href="/auth?tab=signup">
-                      Sign Up for Free
+                    <Link 
+                      href={isAuthenticated ? '/dashboard' : '/auth?tab=signup'}
+                      onClick={handleGetStartedClick}
+                    >
+                      {isAuthenticated ? 'Go to Dashboard' : 'Sign Up for Free'}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
                   <Button asChild size="lg" variant="outline" className="hover:bg-primary/10 hover:text-primary">
-                    <Link href="/auth">Login</Link>
+                    <Link href={isAuthenticated ? '/dashboard' : '/auth'}>
+                      {isAuthenticated ? 'Dashboard' : 'Login'}
+                    </Link>
                   </Button>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react"; // Removed useMemo
+import { useState, useEffect } from "react";
 import {
   CreditCard,
   DollarSign,
@@ -9,7 +9,7 @@ import {
   Calendar as CalendarIcon,
   ChevronDown,
 } from "lucide-react";
-import { format, parseISO } from "date-fns"; // Keep format for display, parseISO might be needed if data needs initial parsing
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,87 +32,60 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
-// Assuming these components exist and accept the props shown
+// Import components and functions from client.tsx
 import SummaryCard from "@/components/SummaryCard";
-import PeopleCard from "@/components/PeopleCard"; // Assuming PeopleCard takes Friend[]
-
-// Define the Friend type clearly
-interface Friend {
-  id: number;
-  name: string;
-  email: string;
-  balance: number;
-  date: string; // Expecting ISO string format (YYYY-MM-DD) from backend eventually
-}
-
-// Example Static Data (Representing data that *would* come from the backend)
-// In a real app, these would likely be fetched and stored in state.
-const friendsWhoOweYouData: Friend[] = [
-  { id: 1, name: "Alex Johnson", email: "alex.johnson@example.com", balance: 245.5, date: "2025-04-10" },
-  { id: 3, name: "Jordan Lee", email: "jordan.lee@example.com", balance: 32.25, date: "2025-04-22" },
-  { id: 4, name: "Casey Doe", email: "casey.doe@example.com", balance: 15.0, date: format(new Date(), 'yyyy-MM-dd') },
-];
-
-const friendsYouOweData: Friend[] = [
-  { id: 2, name: "Taylor Smith", email: "taylor.smith@example.com", balance: 75.0, date: "2025-03-15" },
-  { id: 5, name: "Morgan Riley", email: "morgan.riley@example.com", balance: 50.0, date: "2024-12-20" },
-];
+import PeopleCard from "@/components/PeopleCard";
+import { Friend, fetchTransactions, settleTransaction, requestPayment } from "./client";
 
 type TimeFilter = "all" | "today" | "week" | "month" | "year" | "custom";
 type SettleType = "you-owe" | "owed-to-you" | null;
 
 export default function SettleUpPage() {
   // State for UI elements and interactions
-  const [isLoading, setIsLoading] = useState(true); // For loading indicators
-  const [activeTab, setActiveTab] = useState("all-transactions"); // Controls which tab is visible
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("all-transactions");
   const [isSettleDialogOpen, setIsSettleDialogOpen] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [amount, setAmount] = useState("");
   const [settleType, setSettleType] = useState<SettleType>(null);
 
-  // State for Filters (to be sent to backend)
+  // State for Filters
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [showCalendar, setShowCalendar] = useState(false);
 
-  // State to hold data received from backend (initially empty or with static data for demo)
-  // We use the static data directly for now, but this shows where fetched data would go.
-  const [displayedYouOwe, setDisplayedYouOwe] = useState<Friend[]>(friendsYouOweData);
-  const [displayedOwedToYou, setDisplayedOwedToYou] = useState<Friend[]>(friendsWhoOweYouData);
+  // State to hold data received from backend
+  const [displayedYouOwe, setDisplayedYouOwe] = useState<Friend[]>([]);
+  const [displayedOwedToYou, setDisplayedOwedToYou] = useState<Friend[]>([]);
+  const [totalYouOwe, setTotalYouOwe] = useState(0);
+  const [totalOwedToYou, setTotalOwedToYou] = useState(0);
 
-
-  // --- TODO: Backend Data Fetching ---
-  // This useEffect would trigger when filters change.
-  // It would call an API endpoint with the current filter values
-  // and update displayedYouOwe/displayedOwedToYou state with the response.
+  // Fetch data from the API
   useEffect(() => {
-    const fetchData = async () => {
+    const loadTransactions = async () => {
       setIsLoading(true);
-      console.log("Fetching data with filters:", { activeTab, timeFilter, customDate: customDate ? format(customDate, 'yyyy-MM-dd') : null });
-
-      // --- Replace with actual API call ---
-      // Example: const response = await fetch(`/api/settle-up?tab=${activeTab}&time=${timeFilter}&date=${customDate ? format(customDate, 'yyyy-MM-dd') : ''}`);
-      // const data = await response.json();
-      // setDisplayedYouOwe(data.youOwe);
-      // setDisplayedOwedToYou(data.owedToYou);
-      // --- End Replace ---
-
-      // Simulate API delay and use static data for now
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // For demonstration, we just reset to the static data.
-      // In reality, the backend would return filtered data based on the console log above.
-      setDisplayedYouOwe(friendsYouOweData);
-      setDisplayedOwedToYou(friendsWhoOweYouData);
-
-      setIsLoading(false);
+      try {
+        const data = await fetchTransactions(
+          activeTab, 
+          timeFilter, 
+          timeFilter === 'custom' ? customDate : undefined
+        );
+        
+        setDisplayedYouOwe(data.youOwe);
+        setDisplayedOwedToYou(data.owedToYou);
+        setTotalYouOwe(data.youOweTotal);
+        setTotalOwedToYou(data.owedToYouTotal);
+      } catch (error) {
+        console.error("Failed to load transactions:", error);
+        toast.error("Error loading transactions");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    fetchData();
-  // Dependencies: Fetch data when activeTab or time filters change
+    loadTransactions();
   }, [activeTab, timeFilter, customDate]);
-  // --- End Backend Data Fetching ---
-
 
   const handleSettleUp = (friend: Friend, type: SettleType) => {
     setSelectedFriend(friend);
@@ -121,38 +94,53 @@ export default function SettleUpPage() {
     setIsSettleDialogOpen(true);
   };
 
-  const handlePayment = () => {
-    if (!selectedFriend) return;
-    // TODO: Add actual API call to backend to process payment
-    console.log("Processing payment:", { friend: selectedFriend.id, amount, paymentMethod });
-    toast("Payment successful (Simulation)", {
-      description: `You paid $${amount} to ${selectedFriend.name}.`,
-      duration: 3000,
-    });
-    // TODO: Refetch data or update state locally after successful payment
-    setIsSettleDialogOpen(false);
-    setSelectedFriend(null);
-    setSettleType(null);
+  const handlePayment = async () => {
+    if (!selectedFriend?.transactionId) return;
+    
+    setIsLoading(true);
+    try {
+      await settleTransaction(selectedFriend.transactionId, paymentMethod);
+      // Refresh data after successful payment
+      const data = await fetchTransactions(
+        activeTab, 
+        timeFilter, 
+        timeFilter === 'custom' ? customDate : undefined
+      );
+      
+      setDisplayedYouOwe(data.youOwe);
+      setDisplayedOwedToYou(data.owedToYou);
+      setTotalYouOwe(data.youOweTotal);
+      setTotalOwedToYou(data.owedToYouTotal);
+    } catch (error) {
+      console.error("Payment failed:", error);
+    } finally {
+      setIsSettleDialogOpen(false);
+      setSelectedFriend(null);
+      setSettleType(null);
+      setIsLoading(false);
+    }
   };
 
-  const handleRequestPayment = () => {
-    if (!selectedFriend) return;
-     // TODO: Add actual API call to backend to send payment request
-    console.log("Sending request:", { friend: selectedFriend.id, amount });
-    toast("Payment request sent (Simulation)", {
-      description: `You requested $${amount} from ${selectedFriend.name}.`,
-      duration: 3000,
-    });
-    // TODO: Refetch data or update state locally after successful request
-    setIsSettleDialogOpen(false);
-    setSelectedFriend(null);
-    setSettleType(null);
+  const handleRequestPayment = async () => {
+    if (!selectedFriend?.transactionId) return;
+    
+    setIsLoading(true);
+    try {
+      await requestPayment(selectedFriend.transactionId);
+      // No need to refresh data as request doesn't change balances
+    } catch (error) {
+      console.error("Payment request failed:", error);
+    } finally {
+      setIsSettleDialogOpen(false);
+      setSelectedFriend(null);
+      setSettleType(null);
+      setIsLoading(false);
+    }
   };
 
   const clearTimeFilter = () => {
     setTimeFilter("all");
     setCustomDate(undefined);
-    // Data fetching useEffect will trigger automatically due to state change
   };
 
   const getTimeFilterLabel = () => {
@@ -161,15 +149,10 @@ export default function SettleUpPage() {
       case "week": return "This Week";
       case "month": return "This Month";
       case "year": return "This Year";
-      case "custom": return customDate ? format(customDate, "MMM d,opencamerastudio") : "Select Date";
+      case "custom": return customDate ? format(customDate, "MMM d, yyyy") : "Select Date";
       default: return "All Time";
     }
   };
-
-  // Calculate summary totals based on the *currently displayed* data
-  // (which, for now, is the static data until backend integration)
-  const totalYouOwe = displayedYouOwe.reduce((sum, f) => sum + f.balance, 0);
-  const totalOwedToYou = displayedOwedToYou.reduce((sum, f) => sum + f.balance, 0);
 
   return (
     <div className="grid gap-6">
@@ -202,10 +185,9 @@ export default function SettleUpPage() {
                         variant={timeFilter === filter ? "default" : "ghost"}
                         className="justify-start"
                         onClick={() => {
-                            setTimeFilter(filter); // Set filter state
+                            setTimeFilter(filter);
                             setCustomDate(undefined);
                             setShowCalendar(false);
-                            // Data fetching useEffect will trigger
                         }}
                     >
                         {filter === 'all' ? 'All Time' : `This ${filter.charAt(0).toUpperCase() + filter.slice(1)}`}
@@ -216,7 +198,6 @@ export default function SettleUpPage() {
                     className="justify-start"
                     onClick={() => {
                         setTimeFilter("custom");
-                        // Keep calendar open for date selection
                     }}
                   >
                     Custom Date
@@ -230,9 +211,8 @@ export default function SettleUpPage() {
                   mode="single"
                   selected={customDate}
                   onSelect={(date) => {
-                    setCustomDate(date); // Set filter state
+                    setCustomDate(date);
                     setShowCalendar(false);
-                    // Data fetching useEffect will trigger
                   }}
                   initialFocus
                 />
@@ -250,7 +230,7 @@ export default function SettleUpPage() {
         </div>
       </div>
 
-      {/* Summary Cards - Display totals based on 'displayed' data */}
+      {/* Summary Cards */}
       <div className="grid gap-6 md:grid-cols-2">
         <SummaryCard
           title="You Owe"
@@ -267,24 +247,22 @@ export default function SettleUpPage() {
       </div>
 
       {/* Tabs for viewing different categories */}
-      <Tabs value={activeTab} onValueChange={setActiveTab /* Fetching useEffect depends on this */}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-           {/* Counts show length of currently displayed data */}
           <TabsTrigger value="all-transactions">All</TabsTrigger>
           <TabsTrigger value="you-owe">You Owe ({isLoading ? '...' : displayedYouOwe.length})</TabsTrigger>
           <TabsTrigger value="owed-to-you">Owed to You ({isLoading ? '...' : displayedOwedToYou.length})</TabsTrigger>
         </TabsList>
 
-        {/* Tab Content - Display data from 'displayed' state */}
+        {/* Tab Content */}
         <TabsContent value="all-transactions" className="mt-4 space-y-4">
           {displayedYouOwe.length > 0 && (
             <PeopleCard
               title="People You Owe"
               description="Your pending payments"
               isLoading={isLoading}
-              friends={displayedYouOwe} // Use state variable
+              friends={displayedYouOwe}
               type="you-owe"
-              // Fix: Explicitly type 'friend' parameter here
               handleSettleUp={(friend: Friend) => handleSettleUp(friend, "you-owe")}
             />
           )}
@@ -293,9 +271,8 @@ export default function SettleUpPage() {
               title="People Who Owe You"
               description="Pending payments to receive"
               isLoading={isLoading}
-              friends={displayedOwedToYou} // Use state variable
+              friends={displayedOwedToYou}
               type="owed-to-you"
-               // Fix: Explicitly type 'friend' parameter here
               handleSettleUp={(friend: Friend) => handleSettleUp(friend, "owed-to-you")}
             />
           )}
@@ -304,7 +281,7 @@ export default function SettleUpPage() {
               <p className="text-muted-foreground">No transactions found for the current filter</p>
             </div>
           )}
-           {isLoading && ( // Optional: Show a loading state for the whole section
+           {isLoading && (
              <div className="flex flex-col items-center justify-center h-32 border rounded-lg">
                <p className="text-muted-foreground">Loading transactions...</p>
              </div>
@@ -317,9 +294,8 @@ export default function SettleUpPage() {
               title="People You Owe"
               description="Pay your friends back"
               isLoading={isLoading}
-              friends={displayedYouOwe} // Use state variable
+              friends={displayedYouOwe}
               type="you-owe"
-               // Fix: Explicitly type 'friend' parameter here
               handleSettleUp={(friend: Friend) => handleSettleUp(friend, "you-owe")}
             />
           ) : (
@@ -337,9 +313,8 @@ export default function SettleUpPage() {
               title="People Who Owe You"
               description="Request payments from your friends"
               isLoading={isLoading}
-              friends={displayedOwedToYou} // Use state variable
+              friends={displayedOwedToYou}
               type="owed-to-you"
-               // Fix: Explicitly type 'friend' parameter here
               handleSettleUp={(friend: Friend) => handleSettleUp(friend, "owed-to-you")}
             />
           ) : (
@@ -352,7 +327,7 @@ export default function SettleUpPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Settle Up Dialog - Logic remains mostly the same */}
+      {/* Settle Up Dialog */}
       <Dialog open={isSettleDialogOpen} onOpenChange={setIsSettleDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -385,7 +360,6 @@ export default function SettleUpPage() {
               <div className="grid gap-2">
                 <Label>Payment Method</Label>
                 <RadioGroup defaultValue={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-4">
-                   {/* Radio items */}
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="card" id="card" />
                     <Label htmlFor="card" className="flex items-center cursor-pointer"><CreditCard className="h-4 w-4 mr-2" /> Card</Label>
@@ -403,8 +377,10 @@ export default function SettleUpPage() {
             )}
           </div>
           <DialogFooter>
-             {/* Disable button while processing? */}
-            <Button onClick={settleType === "you-owe" ? handlePayment : handleRequestPayment}>
+            <Button 
+              onClick={settleType === "you-owe" ? handlePayment : handleRequestPayment}
+              disabled={isLoading}
+            >
               {settleType === "you-owe" ? "Pay" : "Request"} ${amount}
             </Button>
           </DialogFooter>

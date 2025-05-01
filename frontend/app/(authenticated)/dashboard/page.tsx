@@ -1,62 +1,96 @@
 import { Dashboard } from "@/components/dashboard"
-async function getInitialDashboardData() {
-  try {
-    // Fetch data from your API endpoints
-    // In a real app, these would be separate fetch calls to your backend
-    const recentExpensesPromise = fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/expenses/recent`, {
-      // headers: { // REMOVED Header
-      //   'Cookie': `auth_token=${token}`
-      // },
-      // This makes the request happen during build/SSR
-      cache: 'no-store'
-    })
+import { cookies } from 'next/headers'
+import { API_URL } from '@/lib/config'
 
-    const balanceSummaryPromise = fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/expenses/summary`, {
-      // headers: { // REMOVED Header
-      //   'Cookie': `auth_token=${token}`
-      // },
-      cache: 'no-store'
-    })
+async function getInitialDashboardData() {
+  console.log("Attempting to fetch dashboard data...");
+  try {
+    // Get authentication cookies
+    const cookieStore = cookies();
+    const token = cookieStore.get('token');
+    
+    // Prepare headers with authentication
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (token) {
+      headers['Cookie'] = `token=${token.value}`;
+    }
+    
+    // Fetch data from API endpoints with proper credentials
+    console.log(`Fetching expenses from: ${API_URL}/api/expenses/getExpenses`);
+    const recentExpensesPromise = fetch(`${API_URL}/api/expenses/getExpenses`, {
+      headers,
+      credentials: 'include',
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
+
+    console.log(`Fetching summary from: ${API_URL}/api/transactions/getSummary`);
+    const balanceSummaryPromise = fetch(`${API_URL}/api/transactions/getSummary`, {
+      headers,
+      credentials: 'include',
+      cache: 'no-store', 
+      next: { revalidate: 0 }
+    });
 
     // Wait for all requests to complete
     const [recentExpensesRes, balanceSummaryRes] = await Promise.all([
       recentExpensesPromise,
       balanceSummaryPromise
-    ])
+    ]);
 
-    // If any request failed, return empty data
-    if (!recentExpensesRes.ok || !balanceSummaryRes.ok) {
-      console.error('Failed to fetch dashboard data')
-      return {
-        expenses: [],
-        balances: { youOwe: 0, youAreOwed: 0 },
-        recentActivity: []
-      }
+    console.log(`Expenses response status: ${recentExpensesRes.status}`);
+    console.log(`Summary response status: ${balanceSummaryRes.status}`);
+
+    // Handle each response individually for better error handling
+    let expenses = [];
+    let recentActivity = [];
+    let balances = { youOwe: 0, youAreOwed: 0 };
+
+    if (recentExpensesRes.ok) {
+      const expensesData = await recentExpensesRes.json();
+      console.log("Expenses data received:", expensesData);
+      expenses = expensesData.expenses?.slice(0, 5) || [];
+      recentActivity = expensesData.expenses?.slice(0, 10) || [];
+    } else {
+      const errorText = await recentExpensesRes.text().catch(() => 'Could not read error response');
+      console.error('Failed to fetch expenses:', recentExpensesRes.status, errorText);
     }
 
-    // Parse response JSON
-    const expenses = await recentExpensesRes.json()
-    const balances = await balanceSummaryRes.json()
-
-    return {
-      expenses: expenses.slice(0, 5), // Just the 5 most recent
-      balances,
-      recentActivity: expenses.slice(0, 10) // Recent activity
+    if (balanceSummaryRes.ok) {
+      const balancesData = await balanceSummaryRes.json();
+      console.log("Balances data received:", balancesData);
+      balances = {
+        youOwe: balancesData.totalYouOwe || 0,
+        youAreOwed: balancesData.totalYouAreOwed || 0
+      };
+    } else {
+      const errorText = await balanceSummaryRes.text().catch(() => 'Could not read error response');
+      console.error('Failed to fetch balance summary:', balanceSummaryRes.status, errorText);
     }
+
+    const resultData = { expenses, balances, recentActivity };
+    console.log("Returning initial data:", resultData);
+    return resultData;
   } catch (error) {
-    console.error('Error fetching dashboard data:', error)
+    console.error('Error fetching dashboard data:', error);
+    // Return default empty state on error
     return {
       expenses: [],
       balances: { youOwe: 0, youAreOwed: 0 },
       recentActivity: []
-    }
+    };
   }
 }
 
 async function Home() {
   // Fetch the initial data on the server
-  const initialData = await getInitialDashboardData()
-  
+  console.log("Home component rendering, calling getInitialDashboardData...");
+  const initialData = await getInitialDashboardData();
+  console.log("Home component received initialData:", initialData);
+
   return (
     <>
       <Dashboard initialData={initialData} />

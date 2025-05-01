@@ -51,19 +51,47 @@ import { format } from "date-fns"
 import { useExpenses } from "@/contexts"
 
 export default function ActivityPage() {
-  const { filterExpenses } = useExpenses()
+  const { filterExpenses, getExpenses, expenses } = useExpenses()
   const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(false)
   const [filters, setFilters] = useState<string[]>([])
   const [timePeriod, setTimePeriod] = useState<string>("all")
   const [date, setDate] = useState<Date>()
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
+
+  // Load initial expenses only once
+  useEffect(() => {
+    if (!hasInitiallyLoaded) {
+      const loadExpenses = async () => {
+        setIsLoading(true)
+        try {
+          await getExpenses()
+        } catch (error) {
+          console.error('Error loading expenses:', error)
+        } finally {
+          setIsLoading(false)
+          setHasInitiallyLoaded(true)
+        }
+      }
+      loadExpenses()
+    }
+  }, [getExpenses, hasInitiallyLoaded])
+
+  // Only filter expenses if we actually have expenses
+  const shouldFilterExpenses = expenses.length > 0
 
   // Handle tab changes
   useEffect(() => {
+    if (!shouldFilterExpenses) return
+    
     const loadExpenses = async () => {
       setIsLoading(true)
       try {
-        await filterExpenses({ type: activeTab !== 'all' ? activeTab : undefined })
+        if (activeTab === 'all') {
+          await getExpenses()
+        } else {
+          await filterExpenses({ type: activeTab })
+        }
       } catch (error) {
         console.error('Error filtering expenses:', error)
       } finally {
@@ -71,12 +99,19 @@ export default function ActivityPage() {
       }
     }
     loadExpenses()
-  }, [activeTab, filterExpenses])
+  }, [activeTab, filterExpenses, getExpenses, shouldFilterExpenses])
 
   // Handle time period changes
   useEffect(() => {
+    if (timePeriod === 'all' || !shouldFilterExpenses) {
+      // Reset to all expenses if time period is 'all'
+      if (timePeriod === 'all' && shouldFilterExpenses) {
+        getExpenses()
+      }
+      return
+    }
+    
     const loadExpenses = async () => {
-      if (timePeriod === 'all') return
       setIsLoading(true)
       try {
         await filterExpenses({ timePeriod })
@@ -87,12 +122,13 @@ export default function ActivityPage() {
       }
     }
     loadExpenses()
-  }, [timePeriod, filterExpenses])
+  }, [timePeriod, filterExpenses, getExpenses, shouldFilterExpenses])
 
   // Handle date selection
   useEffect(() => {
+    if (!date || !shouldFilterExpenses) return
+    
     const loadExpenses = async () => {
-      if (!date) return
       setIsLoading(true)
       try {
         await filterExpenses({ date: date.toISOString() })
@@ -103,7 +139,7 @@ export default function ActivityPage() {
       }
     }
     loadExpenses()
-  }, [date, filterExpenses])
+  }, [date, filterExpenses, shouldFilterExpenses])
 
   const addFilter = (filter: string) => {
     if (!filters.includes(filter)) {
@@ -116,9 +152,11 @@ export default function ActivityPage() {
   }
 
   const handleRefresh = async () => {
+    if (!shouldFilterExpenses) return
+    
     setIsLoading(true)
     try {
-      await filterExpenses({})
+      await getExpenses()
     } catch (error) {
       console.error('Error refreshing expenses:', error)
     } finally {
@@ -126,6 +164,7 @@ export default function ActivityPage() {
     }
   }
 
+  // Rest of your component remains the same
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <div className="flex flex-col gap-4 p-4 md:p-6">
@@ -234,6 +273,7 @@ export default function ActivityPage() {
               size="icon" 
               className="h-10 w-10"
               onClick={handleRefresh}
+              disabled={!shouldFilterExpenses}
             >
               <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>

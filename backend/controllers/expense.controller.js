@@ -5,12 +5,27 @@ import group from "../model/group.model.js";
 const getUserExpenses = async (req,res) => {
   try {
     const {id} = req.user;
-    const expenses = await Expense.find({userId : id});
-    if(!expenses) return res.status(404).json({message : "No expenses found"});
-    return res.status(200).json({message : "Expenses fetched successfully",expenses});
+    // Query for expenses where user is either sender or participant
+    const expenses = await Expense.find({
+      $or: [
+        { senderId: id },
+        { 'participants.user': id }
+      ]
+    })
+    .populate('senderId', 'name email') // Populate sender information
+    .populate('participants.user', 'name email') // Populate participant information
+    .populate('groupId') // Include group information for group expenses
+    .sort({ createdAt: -1 }); // Sort by creation date, newest first
+    
+    // Return empty array instead of 404 error when no expenses found
+    return res.status(200).json({
+      message: expenses.length > 0 ? "Expenses fetched successfully" : "No expenses found", 
+      expenses: expenses || []
+    });
   }
   catch (error) {
-    return res.status(500).json({message : "Internal server error",error});
+    console.error("Error fetching expenses:", error);
+    return res.status(500).json({message: "Internal server error", error: error.message});
   }
 }
 
@@ -20,7 +35,35 @@ const addExpense = async (req,res) => {
     const {title,amount,groupId,category}= req.body;
     let {participants} = req.body;
     if(!title || !amount || !participants) return res.status(400).json({message : "Please provide all the fields"});
-    participants = JSON.parse(participants);
+    
+    // Make sure participants is parsed if it's a string
+    if(typeof participants === 'string') {
+      participants = JSON.parse(participants);
+    }
+    
+    // Validate participants structure
+    if(!Array.isArray(participants)) {
+      return res.status(400).json({message: "Participants must be an array"});
+    }
+
+    // Ensure each participant has a user and share property
+    participants = participants.map(participant => {
+      return {
+        user: participant.user,
+        share: parseFloat(participant.share),
+        isSettled: participant.isSettled || false,
+        transactionId: participant.transactionId || null
+      };
+    });
+
+    // Validate total shares equal amount
+    const totalShares = participants.reduce((sum, participant) => sum + participant.share, 0);
+    if(Math.abs(totalShares - parseFloat(amount)) > 0.01) { // Allow small floating point differences
+      return res.status(400).json({
+        message: "Sum of shares must equal total amount"
+      });
+    }
+
     const isGroupExpense = groupId ? true : false;
 
     let reciept = null;
@@ -37,67 +80,151 @@ const addExpense = async (req,res) => {
       reciept = uploadResult.secure_url;
     }
     
-    const expense = await Expense.create({title,amount,senderId : id,participants,groupId,isGroupExpense,category,reciept});
+    const expense = await Expense.create({
+      title,
+      amount: parseFloat(amount),
+      senderId: id,
+      participants,
+      groupId,
+      isGroupExpense,
+      category,
+      reciept
+    });
+    
     if(isGroupExpense){
       const groupDoc = await group.findById(groupId);
-      groupDoc.totalExpense += amount;
-      groupDoc.expense.push(expense._id);
+      if(!groupDoc) return res.status(404).json({message : "Group not found"});
+      groupDoc.totalExpense += parseFloat(amount);
+      groupDoc.expenses = groupDoc.expenses || [];
+      groupDoc.expenses.push(expense._id);
       await groupDoc.save();
     }
+    
     if(!expense) return res.status(400).json({message : "Error in creating expense"});
-    return res.status(201).json({message : "Expense created successfully",expense});
+    
+    // Populate expense details before sending the response
+    const populatedExpense = await Expense.findById(expense._id)
+      .populate('senderId', 'name email')
+      .populate('participants.user', 'name email')
+      .populate('groupId');
+      
+    return res.status(201).json({message : "Expense created successfully", expense: populatedExpense});
   } catch (error) {
-    return res.status(500).json({message : "Internal server error",error});
+    console.error("Add expense error:", error);
+    return res.status(500).json({message : "Internal server error", error: error.message});
   }
 }
 
 const updateExpense = async (req,res) => {
   try {
     const {id} = req.user;
-    const {title,amount,participants,groupId,category} = req.body;
+    const {title, amount, groupId, category} = req.body;
+    let {participants} = req.body;
     const {expenseId} = req.params;
-    if(!title || !amount || !participants) return res.status(400).json({message : "Please provide all the fields"});
+    
+    if(!title || !amount || !participants) {
+      return res.status(400).json({message : "Please provide all the fields"});
+    }
+    
+    // Make sure participants is parsed if it's a string
+    if(typeof participants === 'string') {
+      participants = JSON.parse(participants);
+    }
+    
+    // Validate participants structure
+    if(!Array.isArray(participants)) {
+      return res.status(400).json({message: "Participants must be an array"});
+    }
+    
+    // Check if expense exists and user is authorized
     const expense = await Expense.findById(expenseId);
-    if(!expense) return res.status(404).json({message : "Expense not found"});
-    if(expense.senderId.toString() !== id) return res.status(403).json({message : "You are not authorized to update this expense"});
-    const people = participants.map(person => {
-      if(!person.userId || !person.share) {
-        throw new Error("Invalid participant data");
-      }
+    if(!expense) {
+      return res.status(404).json({message : "Expense not found"});
+    }
+    if(expense.senderId.toString() !== id) {
+      return res.status(403).json({message : "You are not authorized to update this expense"});
+    }
+    
+    // Normalize participant data
+    const updatedParticipants = participants.map(participant => {
       return {
-        userId: person.userId,
-        share: Number(person.share),
-        isSettled: person.isSettled || false,
-        transactionId: person.transactionId || null,
+        user: participant.user || participant.userId, // Support both naming conventions
+        share: parseFloat(participant.share),
+        isSettled: participant.isSettled || false,
+        transactionId: participant.transactionId || null,
       };
     });
-     const totalShares = people.reduce((sum, person) => sum + person.share, 0);
-     if(totalShares !== amount) {
-       return res.status(400).json({
-         message: "Sum of shares must equal total amount"
-       });
-     }
-    const updatedExpense = await Expense.findByIdAndUpdate(expenseId,{title,amount,people,groupId,category},{new : true});
+    
+    // Validate total shares equal amount
+    const totalShares = updatedParticipants.reduce((sum, participant) => sum + participant.share, 0);
+    if(Math.abs(totalShares - parseFloat(amount)) > 0.01) { // Allow small floating point differences
+      return res.status(400).json({
+        message: "Sum of shares must equal total amount"
+      });
+    }
+    
+    // Update the expense with the normalized data
+    const updatedExpense = await Expense.findByIdAndUpdate(
+      expenseId,
+      {
+        title,
+        amount: parseFloat(amount),
+        participants: updatedParticipants,
+        groupId,
+        category
+      },
+      {new : true}
+    )
+    .populate('senderId', 'name email')
+    .populate('participants.user', 'name email')
+    .populate('groupId');
 
-    if(!updatedExpense) return res.status(400).json({message : "Error in updating expense"});
-    return res.status(200).json({message : "Expense updated successfully",updatedExpense});
+    if(!updatedExpense) {
+      return res.status(400).json({message : "Error in updating expense"});
+    }
+    
+    return res.status(200).json({
+      message : "Expense updated successfully",
+      expense: updatedExpense
+    });
   } catch (error) {
-    return res.status(500).json({message : "Internal server error",error});
+    console.error("Update expense error:", error);
+    return res.status(500).json({message : "Internal server error", error: error.message});
   }
 }
 
 const getExpenseSummary = async (req, res) => {
   try {
-    const { amount, participants, senderId } = req.body;
+    let { amount, participants, senderId } = req.body;
 
     // Validate input
     if (!amount || !Array.isArray(participants) || participants.length === 0 || !senderId) {
       return res.status(400).json({ message: "Invalid request body" });
     }
 
+    // Ensure amount is a number
+    amount = parseFloat(amount);
+
+    // Parse participants if needed and normalize structure
+    if (typeof participants === 'string') {
+      try {
+        participants = JSON.parse(participants);
+      } catch (error) {
+        return res.status(400).json({ message: "Invalid participants format" });
+      }
+    }
+
+    // Normalize participants data
+    participants = participants.map(person => ({
+      user: person.user || person.userId,
+      share: parseFloat(person.share || 0),
+      isSettled: person.isSettled || false,
+      transactionId: person.transactionId || null
+    }));
+
     // Validate total shares equal amount
     const totalShares = participants.reduce((sum, person) => sum + person.share, 0);
-    if (totalShares !== amount) {
+    if (Math.abs(totalShares - amount) > 0.01) {
       return res.status(400).json({ message: "Sum of shares must equal total amount" });
     }
 
@@ -110,7 +237,7 @@ const getExpenseSummary = async (req, res) => {
     }));
 
     // Total amount the sender should receive
-    const totalAmountOwedToSender = participants.reduce((sum, person) => sum + person.share, 0);
+    const totalAmountOwedToSender = totalShares;
 
     return res.status(200).json({
       totalAmount: amount,
@@ -120,8 +247,8 @@ const getExpenseSummary = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server Error" });
+    console.error("Expense summary error:", error);
+    return res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
@@ -130,36 +257,55 @@ const filterExpenses = async (req,res) => {
     const { timePeriod, date, type } = req.query;
     const { id } = req.user;
     
-    let query = { $or: [{ senderId: id }, { 'participants.userId': id }] };
+    // Base query: expenses where user is either sender or participant
+    let query = { $or: [{ senderId: id }, { 'participants.user': id }] };
     let dateFilter = {};
 
     // Handle time period filter
     if (timePeriod) {
       const now = new Date();
+      let filterDate;
+      
       switch (timePeriod) {
         case '30days':
-          dateFilter = { createdAt: { $gte: new Date(now.setDate(now.getDate() - 30)) } };
+          filterDate = new Date(now);
+          filterDate.setDate(now.getDate() - 30);
+          dateFilter = { createdAt: { $gte: filterDate } };
           break;
         case '6months':
-          dateFilter = { createdAt: { $gte: new Date(now.setMonth(now.getMonth() - 6)) } };
+          filterDate = new Date(now);
+          filterDate.setMonth(now.getMonth() - 6);
+          dateFilter = { createdAt: { $gte: filterDate } };
           break;
         case 'year':
-          dateFilter = { createdAt: { $gte: new Date(now.setFullYear(now.getFullYear() - 1)) } };
+          filterDate = new Date(now);
+          filterDate.setFullYear(now.getFullYear() - 1);
+          dateFilter = { createdAt: { $gte: filterDate } };
+          break;
+        default:
+          // No filter for invalid time period
           break;
       }
     }
 
-    // Handle specific date filter
+    // Handle specific date filter (overrides time period if both provided)
     if (date) {
-      const selectedDate = new Date(date);
-      const nextDay = new Date(selectedDate);
-      nextDay.setDate(selectedDate.getDate() + 1);
-      dateFilter = {
-        createdAt: {
-          $gte: selectedDate,
-          $lt: nextDay
+      try {
+        const selectedDate = new Date(date);
+        if (!isNaN(selectedDate.getTime())) { // Check if valid date
+          const nextDay = new Date(selectedDate);
+          nextDay.setDate(selectedDate.getDate() + 1);
+          
+          dateFilter = {
+            createdAt: {
+              $gte: selectedDate,
+              $lt: nextDay
+            }
+          };
         }
-      };
+      } catch (err) {
+        console.error("Invalid date format:", err);
+      }
     }
 
     // Add date filter to query if exists
@@ -172,7 +318,7 @@ const filterExpenses = async (req,res) => {
       switch (type) {
         case 'youowe':
           query = {
-            'participants.userId': id,
+            'participants.user': id,
             senderId: { $ne: id },
             'participants.isSettled': false
           };
@@ -187,27 +333,29 @@ const filterExpenses = async (req,res) => {
           query = {
             $or: [
               { senderId: id },
-              { 'participants.userId': id }
+              { 'participants.user': id }
             ],
             'participants.isSettled': true
           };
           break;
+        default:
+          // Keep the base query for invalid type
+          break;
       }
     }
 
+    // Apply the query
     const expenses = await Expense.find(query)
       .sort({ createdAt: -1 })
       .populate('senderId', 'name email')
-      .populate('participants.userId', 'name email');
+      .populate('participants.user', 'name email')
+      .populate('groupId');
 
-    if (!expenses || expenses.length === 0) {
-      return res.status(404).json({ message: "No expenses found matching the filters" });
-    }
-
+    // Return empty array instead of 404 error for consistency with getUserExpenses
     return res.status(200).json({
-      message: "Expenses fetched successfully",
+      message: expenses.length > 0 ? "Expenses fetched successfully" : "No expenses found matching the filters",
       count: expenses.length,
-      expenses
+      expenses: expenses || []
     });
 
   } catch (error) {

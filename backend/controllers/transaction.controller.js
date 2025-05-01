@@ -3,14 +3,40 @@ import Expense from "../model/expense.model.js";
 
 const getUserTransactions = async (req,res) => {
   try {
-    const transactions = await Transactions.find({senderId : req.user.id}).populate("senderId").populate("receiverId");
-    if(!transactions) {
-      return res.status(404).json({message : "Transactions not found"});
+    const { id } = req.user;
+    
+    // Find transactions where the user is either sender or receiver
+    const transactions = await Transactions.find({
+      $or: [
+        { senderId: id },
+        { receiverId: id }
+      ]
+    })
+    .populate("senderId", "name email")
+    .populate("receiverId", "name email")
+    .sort({ date: -1 }); // Sort by date, newest first
+    
+    if(!transactions || transactions.length === 0) {
+      return res.status(404).json({message: "No transactions found"});
     }
-    return res.status(200).json({message : "Transactiond found",transactions});
-
+    
+    // Separate transactions into "you owe" and "owed to you"
+    const youOwe = transactions.filter(txn => txn.senderId._id.toString() === id && !txn.isSettled);
+    const owedToYou = transactions.filter(txn => txn.receiverId._id.toString() === id && !txn.isSettled);
+    
+    return res.status(200).json({
+      message: "Transactions found",
+      transactions,
+      summary: {
+        youOwe,
+        owedToYou,
+        youOweTotal: youOwe.reduce((sum, txn) => sum + txn.amount, 0),
+        owedToYouTotal: owedToYou.reduce((sum, txn) => sum + txn.amount, 0)
+      }
+    });
   } catch (error) {
-    console.log(error);
+    console.error("Error fetching transactions:", error);
+    return res.status(500).json({message: "Internal server error", error: error.message});
   }
 }
 
@@ -23,8 +49,8 @@ const addTransaction = async (req,res) => {
     const transaction = await Transactions.create({amount,description,category,senderId,receiverId});
     return res.status(201).json({message : "Transaction done Successfully",transaction});
   } catch (error) {
-    console.log(error);
-    
+    console.error("Error adding transaction:", error);
+    return res.status(500).json({message: "Internal server error", error: error.message});
   }
 }
 
@@ -47,132 +73,161 @@ const updateTransaction = async (req,res) => {
 }
 
 const getTransactionSummary = async (req,res) => {
-  const {id} = req.user;
+  try {
+    const {id} = req.user;
 
-  const transactions = await Transactions.find({$or  : [{senderId:  id,receiverId : id}]}).populate("senderId receiverId","name");
-  let totalYouOwe = 0;
-  let totalYouAreOwed = 0;
-  const friendBalances = {};
+    // Find transactions where the user is either sender or receiver
+    const transactions = await Transactions.find({
+      $or: [
+        { senderId: id },
+        { receiverId: id }
+      ]
+    }).populate("senderId", "name").populate("receiverId", "name");
+    
+    if (!transactions || transactions.length === 0) {
+      return res.status(404).json({ message: "No transactions found" });
+    }
 
-  transactions.forEach(txn => {
-    const isSender = txn.senderId._id.equals(id);
-    const otherUser = isSender ? txn.receiverId : txn.senderId;
+    let totalYouOwe = 0;
+    let totalYouAreOwed = 0;
+    const friendBalances = {};
 
-    if(!friendBalances[otherUser._id]) {
-      friendBalances[otherUser._id] = {
-        name : otherUser.name,
-        balance : 0
+    transactions.forEach(txn => {
+      const isSender = txn.senderId._id.toString() === id.toString();
+      const otherUser = isSender ? txn.receiverId : txn.senderId;
+      const otherUserId = otherUser._id.toString();
+
+      if(!friendBalances[otherUserId]) {
+        friendBalances[otherUserId] = {
+          name: otherUser.name,
+          balance: 0
+        }
       }
-    }
-    const amount = txn.amount;
-    if(isSender) {
-      totalYouOwe += amount;
-      friendBalances[otherUser._id].balance -= amount;
-    } else {
-      totalYouAreOwed += amount;
-      friendBalances[otherUser._id].balance += amount;
-    }
-  })
+      
+      const amount = txn.amount;
+      if(isSender) {
+        totalYouOwe += amount;
+        friendBalances[otherUserId].balance -= amount;
+      } else {
+        totalYouAreOwed += amount;
+        friendBalances[otherUserId].balance += amount;
+      }
+    });
+    
     const netBalance = totalYouAreOwed - totalYouOwe;
 
-    res.json({totalYouAreOwed,totalYouOwe,netBalance,friendBalances});
-}
-const filterTransactions = async (req,res) => {
-  const {tab,date} = req.query;
-  const {id} = req.user;
-  try {
-     if(tab === "youOwe") {
-      const transactions = await Transactions.find({senderId : id}).populate("senderId ","name");
-      if(!transactions) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      if(transactions.length === 0) {
-        return res.status(200).json({message : "No transactions found"});
-      }
-      let filteredTransactions  = transactions.filter(txn => {
-        return txn.senderId._id.equals(id);
-      });
-      return res.status(200).json({message :  "Transactions found",transactions : filteredTransactions});
-
-    } else if(tab === "youAreOwed") {
-      const transactions = await Transactions.find({receiverId : id}).populate("receiverId ","name");
-      if(!transactions) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      if(transactions.length === 0) {
-        return res.status(200).json({message : "No transactions found"});
-      }
-      let filteredTransactions  = transactions.filter(txn => {
-        return txn.receiverId._id.equals(id);
-      });
-      return res.status(200).json({message :  "Transactions found",transactions : filteredTransactions});
-
-    }
-
-    if(date == "This today") {
-      const startOfDay = new Date();
-      startOfDay.setHours(0,0,0,0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23,59,59,999);
-      const transactions = await Transactions.find({date : {$gte : startOfDay,$lte :endOfDay}}).populate("senderId ","name");
-      if(!transactions) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      return res.status(200).json({message : "Transactions found",transactions});
-    }
-    else if(date === "This week") {
-      const startOfWeek = new Date();
-      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-      startOfWeek.setHours(0,0,0,0);
-      const endOfWeek = new Date();
-      endOfWeek.setDate(endOfWeek.getDate() + (6 - endOfWeek.getDay()));
-      endOfWeek.setHours(23,59,59,999);
-      const transactions = await Transactions.find({date : {$gte : startOfWeek,$lte :endOfWeek}}).populate("senderId ","name");
-      if(!transactions) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      return res.status(200).json({message : "Transactions found",transactions});
-    }
-    else if(date === "This month") {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0,0,0,0);
-      const endOfMonth = new Date();
-      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-      endOfMonth.setDate(0);
-      endOfMonth.setHours(23,59,59,999);
-      const transactions = await Transactions.find({date : {$gte : startOfMonth,$lte :endOfMonth}}).populate("senderId ","name");
-      if(!transactions) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      return res.status(200).json({message : "Transactions found",transactions});
-    }
-    else if(date === "This year") {
-      const startOfYear = new Date();
-      startOfYear.setDate(1);
-      startOfYear.setMonth(0);
-      startOfYear.setHours(0,0,0,0);
-      const endOfYear = new Date();
-      endOfYear.setDate(31);
-      endOfYear.setMonth(11);
-      endOfYear.setHours(23,59,59,999);
-      const transactions = await Transactions.find({date : {$gte : startOfYear,$lte :endOfYear}}).populate("senderId ","name");
-      if(!transactions) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      return res.status(200).json({message : "Transactions found",transactions});
-    } else //custome date filter 
-    {
-      const startDate = new Date(date[0]);
-      const endDate = new Date(date[1]);
-      const transactions = await Transactions.find({date : {$gte : startDate,$lte :endDate}}).populate("senderId ","name");
-      if(transactions.length === 0) {
-        return res.status(404).json({message : "Transactions not found"});
-      }
-      return res.status(200).json({message : "Transactions found",transactions});
-    }
+    return res.status(200).json({
+      totalYouAreOwed,
+      totalYouOwe,
+      netBalance,
+      friendBalances: Object.values(friendBalances)
+    });
   } catch (error) {
-    console.log(error);
+    console.error("Error getting transaction summary:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+const filterTransactions = async (req, res) => {
+  try {
+    const { tab, timeFilter, customDate } = req.query;
+    const { id } = req.user;
+    
+    // Base query - user is either sender or receiver
+    let query = {
+      $or: [
+        { senderId: id },
+        { receiverId: id }
+      ]
+    };
+    
+    // Apply tab filter (transaction type)
+    if (tab === "you-owe") {
+      query = {
+        senderId: id,
+        isSettled: false
+      };
+    } else if (tab === "owed-to-you") {
+      query = {
+        receiverId: id,
+        isSettled: false
+      };
+    }
+    
+    // Apply time filter
+    if (timeFilter) {
+      const now = new Date();
+      
+      switch (timeFilter) {
+        case 'today':
+          const startOfDay = new Date(now);
+          startOfDay.setHours(0, 0, 0, 0);
+          query.date = { $gte: startOfDay, $lte: now };
+          break;
+          
+        case 'week':
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+          startOfWeek.setHours(0, 0, 0, 0);
+          query.date = { $gte: startOfWeek, $lte: now };
+          break;
+          
+        case 'month':
+          const startOfMonth = new Date(now);
+          startOfMonth.setDate(1); // Start of current month
+          startOfMonth.setHours(0, 0, 0, 0);
+          query.date = { $gte: startOfMonth, $lte: now };
+          break;
+          
+        case 'year':
+          const startOfYear = new Date(now);
+          startOfYear.setMonth(0, 1); // January 1st of current year
+          startOfYear.setHours(0, 0, 0, 0);
+          query.date = { $gte: startOfYear, $lte: now };
+          break;
+          
+        case 'custom':
+          if (customDate) {
+            const selectedDate = new Date(customDate);
+            const nextDay = new Date(selectedDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            query.date = { $gte: selectedDate, $lt: nextDay };
+          }
+          break;
+      }
+    }
+    
+    // Execute query with population and sorting
+    const transactions = await Transactions.find(query)
+      .populate('senderId', 'name email')
+      .populate('receiverId', 'name email')
+      .sort({ date: -1 });
+    
+    // Process results into the expected format
+    const youOwe = transactions.filter(txn => 
+      txn.senderId._id.toString() === id && !txn.isSettled
+    );
+    
+    const owedToYou = transactions.filter(txn => 
+      txn.receiverId._id.toString() === id && !txn.isSettled
+    );
+    
+    return res.status(200).json({
+      message: "Transactions fetched successfully",
+      count: transactions.length,
+      transactions,
+      youOwe,
+      owedToYou,
+      youOweTotal: youOwe.reduce((sum, txn) => sum + txn.amount, 0),
+      owedToYouTotal: owedToYou.reduce((sum, txn) => sum + txn.amount, 0)
+    });
+    
+  } catch (error) {
+    console.error("Filter transactions error:", error);
+    return res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
   }
 }
 
