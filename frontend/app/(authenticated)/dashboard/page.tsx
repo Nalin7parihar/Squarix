@@ -6,7 +6,7 @@ async function getInitialDashboardData() {
   console.log("Attempting to fetch dashboard data...");
   try {
     // Get authentication cookies
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = cookieStore.get('token');
     
     // Prepare headers with authentication

@@ -6,7 +6,7 @@ async function getInitialFriendsData() {
   try {
     const cookieStore = await cookies();
     // Use the cookie name from our auth config
-    const token = cookieStore.get(AUTH_CONFIG.cookieName);
+    const token = cookieStore.get('token');
 
     if (!token) {
       throw new Error('No authentication token found');
