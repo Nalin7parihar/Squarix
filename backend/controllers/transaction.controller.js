@@ -20,9 +20,15 @@ const getUserTransactions = async (req,res) => {
       return res.status(404).json({message: "No transactions found"});
     }
     
-    // Separate transactions into "you owe" and "owed to you"
-    const youOwe = transactions.filter(txn => txn.senderId._id.toString() === id && !txn.isSettled);
-    const owedToYou = transactions.filter(txn => txn.receiverId._id.toString() === id && !txn.isSettled);
+    // Fixed: Correctly identify "you owe" and "owed to you" transactions
+    // You owe = User is receiver and not settled
+    const youOwe = transactions.filter(txn => 
+      txn.receiverId._id.toString() === id.toString() && !txn.isSettled
+    );
+    // Owed to you = User is sender and not settled
+    const owedToYou = transactions.filter(txn => 
+      txn.senderId._id.toString() === id.toString() && !txn.isSettled
+    );
     
     return res.status(200).json({
       message: "Transactions found",
@@ -72,9 +78,11 @@ const updateTransaction = async (req,res) => {
   }
 }
 
+// In getTransactionSummary function
 const getTransactionSummary = async (req,res) => {
   try {
     const {id} = req.user;
+    console.log("Getting summary for user ID:", id);
 
     // Find transactions where the user is either sender or receiver
     const transactions = await Transactions.find({
@@ -85,14 +93,21 @@ const getTransactionSummary = async (req,res) => {
     }).populate("senderId", "name").populate("receiverId", "name");
     
     if (!transactions || transactions.length === 0) {
+      console.log("No transactions found for user");
       return res.status(404).json({ message: "No transactions found" });
     }
+
+    console.log(`Found ${transactions.length} total transactions`);
 
     let totalYouOwe = 0;
     let totalYouAreOwed = 0;
     const friendBalances = {};
+    
+    // Only consider unsettled transactions for balances
+    const unsettledTransactions = transactions.filter(txn => !txn.isSettled);
+    console.log(`Found ${unsettledTransactions.length} unsettled transactions`);
 
-    transactions.forEach(txn => {
+    unsettledTransactions.forEach(txn => {
       const isSender = txn.senderId._id.toString() === id.toString();
       const otherUser = isSender ? txn.receiverId : txn.senderId;
       const otherUserId = otherUser._id.toString();
@@ -105,16 +120,30 @@ const getTransactionSummary = async (req,res) => {
       }
       
       const amount = txn.amount;
+      
+      // Debug this transaction
+      console.log(`Transaction: ${txn._id}, Amount: ${amount}, isSender: ${isSender}, isSettled: ${txn.isSettled}`);
+      
+      // FIXED: Align with other methods - sender is owed money, receiver owes money
       if(isSender) {
-        totalYouOwe += amount;
-        friendBalances[otherUserId].balance -= amount;
-      } else {
         totalYouAreOwed += amount;
         friendBalances[otherUserId].balance += amount;
+        console.log(`Added ${amount} to totalYouAreOwed, new total: ${totalYouAreOwed}`);
+      } else {
+        totalYouOwe += amount;
+        friendBalances[otherUserId].balance -= amount;
+        console.log(`Added ${amount} to totalYouOwe, new total: ${totalYouOwe}`);
       }
     });
     
     const netBalance = totalYouAreOwed - totalYouOwe;
+    
+    console.log("Final calculations:", {
+      totalYouAreOwed,
+      totalYouOwe,
+      netBalance,
+      friendBalancesCount: Object.keys(friendBalances).length
+    });
 
     return res.status(200).json({
       totalYouAreOwed,
@@ -133,6 +162,8 @@ const filterTransactions = async (req, res) => {
     const { tab, timeFilter, customDate } = req.query;
     const { id } = req.user;
     
+    console.log("Filter transactions request:", { tab, timeFilter, customDate, userId: id });
+    
     // Base query - user is either sender or receiver
     let query = {
       $or: [
@@ -142,14 +173,16 @@ const filterTransactions = async (req, res) => {
     };
     
     // Apply tab filter (transaction type)
-    if (tab === "you-owe") {
+    if (tab === "owe") {
+      console.log("Filtering for transactions you owe (as receiver)");
       query = {
-        senderId: id,
+        receiverId: id, 
         isSettled: false
       };
-    } else if (tab === "owed-to-you") {
+    } else if (tab === "owed") {
+      console.log("Filtering for transactions owed to you (as sender)");
       query = {
-        receiverId: id,
+        senderId: id,
         isSettled: false
       };
     }
@@ -197,20 +230,41 @@ const filterTransactions = async (req, res) => {
       }
     }
     
+    console.log("Final MongoDB query:", JSON.stringify(query));
+    
     // Execute query with population and sorting
     const transactions = await Transactions.find(query)
       .populate('senderId', 'name email')
       .populate('receiverId', 'name email')
       .sort({ date: -1 });
     
-    // Process results into the expected format
+    console.log(`Found ${transactions.length} transactions matching query`);
+    
+    // Process results into the expected format - Fixed ID comparison with toString()
     const youOwe = transactions.filter(txn => 
-      txn.senderId._id.toString() === id && !txn.isSettled
+      txn.receiverId._id.toString() === id.toString() && !txn.isSettled
     );
     
     const owedToYou = transactions.filter(txn => 
-      txn.receiverId._id.toString() === id && !txn.isSettled
+      txn.senderId._id.toString() === id.toString() && !txn.isSettled
     );
+    
+    const youOweTotal = youOwe.reduce((sum, txn) => sum + txn.amount, 0);
+    const owedToYouTotal = owedToYou.reduce((sum, txn) => sum + txn.amount, 0);
+    
+    console.log("Filter results:", {
+      youOweCount: youOwe.length,
+      owedToYouCount: owedToYou.length,
+      youOweTotal,
+      owedToYouTotal
+    });
+    
+    if (tab === "owed" && owedToYou.length > 0) {
+      console.log("Detailed 'owed to you' transactions:");
+      owedToYou.forEach(txn => {
+        console.log(`ID: ${txn._id}, Amount: ${txn.amount}, Date: ${txn.date}, Receiver: ${txn.receiverId.name}`);
+      });
+    }
     
     return res.status(200).json({
       message: "Transactions fetched successfully",
@@ -218,8 +272,8 @@ const filterTransactions = async (req, res) => {
       transactions,
       youOwe,
       owedToYou,
-      youOweTotal: youOwe.reduce((sum, txn) => sum + txn.amount, 0),
-      owedToYouTotal: owedToYou.reduce((sum, txn) => sum + txn.amount, 0)
+      youOweTotal,
+      owedToYouTotal
     });
     
   } catch (error) {
@@ -285,4 +339,42 @@ const settleTransaction = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 };
-export {getUserTransactions,addTransaction,updateTransaction,getTransactionSummary,filterTransactions,settleTransaction};
+
+// Fix requestPayment function to use consistent parameter naming
+const requestPayment = async (req, res) => {
+  const { id: transactionId } = req.params;
+  const { id } = req.user;  // Changed from userId to id for consistency
+
+  try {
+    console.log(`Request payment for transaction ${transactionId} by user ${id}`);
+    
+    // Find the transaction
+    const transaction = await Transactions.findById(transactionId);
+    if (!transaction) {
+      console.log("Transaction not found");
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
+    // Verify that the current user is the sender (the one who is owed money)
+    if (transaction.senderId.toString() !== id.toString()) {
+      console.log(`User ${id} is not the sender (${transaction.senderId})`);
+      return res.status(403).json({ 
+        message: "You can only request payments for transactions where you are the sender" 
+      });
+    }
+
+    // In a real app, you would send an email/notification to the receiver
+    // For now, we'll just return success
+    console.log("Payment request successful");
+
+    return res.status(200).json({
+      message: "Payment request sent successfully",
+      transactionId: transactionId
+    });
+  } catch (error) {
+    console.error("Error requesting payment:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+export {getUserTransactions, addTransaction, updateTransaction, getTransactionSummary, filterTransactions, settleTransaction, requestPayment};

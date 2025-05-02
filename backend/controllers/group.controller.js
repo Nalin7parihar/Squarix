@@ -35,36 +35,6 @@ import Transactions from "../model/transaction.model.js";
   }
 };
 
-// Get details of a specific group
- const getGroupDetails = async (req, res) => {
-  try {
-    const { groupId } = req.params;
-    
-    const group = await Group.findById(groupId)
-      .populate('members', 'name email')
-      .populate('expenses')
-      .populate('createdBy', 'name email');
-
-    if (!group) {
-      return res.status(404).json({
-        success: false,
-        message: "Group not found"
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      group
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching group details",
-      error: error.message
-    });
-  }
-};
-
 // Get all groups for a user
  const getAllGroups = async (req, res) => {
   try {
@@ -452,4 +422,4 @@ const getGroupExpenses = async (req, res) => {
   }
 };
 
-export {deleteGroup, removeMemberFromGroup, addMemberToGroup, getAllGroups, getGroupDetails, createGroup, addGroupExpense, getGroupExpenses};
+export {deleteGroup, removeMemberFromGroup, addMemberToGroup, getAllGroups, createGroup, addGroupExpense, getGroupExpenses};

@@ -74,7 +74,6 @@ const addExpense = async (req,res) => {
       const fileStr = req.file.buffer.toString('base64');
       const fileFormat = `data:${req.file.mimetype};base64,${fileStr}`;
 
-
       const uploadResult = await cloudinary.uploader.upload(fileFormat, {
         folder: 'expenses',
         resource_type: 'auto'
@@ -110,49 +109,78 @@ const addExpense = async (req,res) => {
     
     // Create transactions for each participant
     const updatedParticipants = [];
-    for (const participant of participants) {
-      // Skip participants with zero share or the sender
-      if (participant.share <= 0 || participant.user.toString() === actualSenderId.toString()) {
-        updatedParticipants.push(participant);
-        continue;
+    const transactions = [];
+    
+    try {
+      for (const participant of participants) {
+        // Skip participants with zero share or the sender (sender doesn't owe themselves)
+        if (participant.share <= 0 || participant.user.toString() === actualSenderId.toString()) {
+          updatedParticipants.push(participant);
+          continue;
+        }
+        
+        // FIXED: Correctly set the senderId and receiverId for the transaction
+        // The person who paid (actualSenderId) is the sender - they should receive money
+        // The participant is the receiver - they owe money to the sender
+        const transaction = await Transactions.create({
+          amount: participant.share,
+          date: expense.createdAt || new Date(),
+          description: `Share of expense: ${title}`,
+          category: category,
+          senderId: actualSenderId,    // Person who paid and should receive money
+          receiverId: participant.user, // Person who owes money
+          isSettled: false,
+          expenseId: expense._id       // Link to the original expense
+        });
+        
+        transactions.push(transaction);
+        
+        // Update the participant with the transaction ID
+        updatedParticipants.push({
+          ...participant,
+          transactionId: transaction._id,
+          isSettled: false
+        });
       }
       
-      // Create a transaction for this participant
-      const transaction = await Transactions.create({
-        amount: participant.share,
-        date: new Date(),
-        description: title,
-        category,
-        senderId: participant.user, // The participant owes money
-        receiverId: actualSenderId, // To the expense creator
-        isSettled: false
+      // Update the expense with transaction IDs
+      if (updatedParticipants.length > 0) {
+        await Expense.findByIdAndUpdate(expense._id, {
+          participants: updatedParticipants
+        });
+      }
+      
+      // Populate expense details before sending the response
+      const populatedExpense = await Expense.findById(expense._id)
+        .populate('senderId', 'name email')
+        .populate('participants.user', 'name email')
+        .populate('groupId');
+        
+      return res.status(201).json({
+        message: "Expense created successfully", 
+        expense: populatedExpense,
+        transactions: transactions.length > 0 ? transactions : []
       });
       
-      // Update the participant with the transaction ID
-      updatedParticipants.push({
-        ...participant,
-        transactionId: transaction._id,
-        isSettled: false // Explicitly mark as unsettled
-      });
-    }
-    
-    // Update the expense with transaction IDs
-    if (updatedParticipants.length > 0) {
-      await Expense.findByIdAndUpdate(expense._id, {
-        participants: updatedParticipants
-      });
-    }
-    
-    // Populate expense details before sending the response
-    const populatedExpense = await Expense.findById(expense._id)
-      .populate('senderId', 'name email')
-      .populate('participants.user', 'name email')
-      .populate('groupId');
+    } catch (transactionError) {
+      // If transaction creation fails, log error but don't fail the whole expense creation
+      console.error("Error creating transactions for expense:", transactionError);
       
-    return res.status(201).json({message : "Expense created successfully", expense: populatedExpense});
+      // Still return the expense, but with a warning
+      const populatedExpense = await Expense.findById(expense._id)
+        .populate('senderId', 'name email')
+        .populate('participants.user', 'name email')
+        .populate('groupId');
+        
+      return res.status(201).json({
+        message: "Expense created but there was an issue creating some transactions", 
+        expense: populatedExpense,
+        transactionError: transactionError.message
+      });
+    }
   } catch (error) {
     console.error("Add expense error:", error);
-    return res.status(500).json({message : "Internal server error", error: error.message});
+    return res.status(500).json({message: "Internal server error", error: error.message});
   }
 }
 
@@ -202,6 +230,60 @@ const updateExpense = async (req,res) => {
       return res.status(400).json({
         message: "Sum of shares must equal total amount"
       });
+    }
+
+    // Handle transactions for participants
+    try {
+      // Map to track which participants already have transactions
+      const existingTransactionMap = new Map();
+      
+      // First, identify participants that already have transactions
+      expense.participants.forEach(participant => {
+        if (participant.transactionId) {
+          existingTransactionMap.set(participant.user.toString(), participant.transactionId);
+        }
+      });
+      
+      // Process each participant
+      for (const participant of updatedParticipants) {
+        const participantId = participant.user.toString();
+        
+        // Skip the expense creator/payer
+        if (participantId === expense.senderId.toString()) {
+          continue;
+        }
+        
+        // If participant has an existing transaction
+        if (existingTransactionMap.has(participantId) && participant.transactionId) {
+          // Update the existing transaction
+          const transactionId = existingTransactionMap.get(participantId);
+          await Transactions.findByIdAndUpdate(transactionId, {
+            amount: participant.share,
+            description: `Share of expense: ${title}`,
+            category: category,
+            isSettled: participant.isSettled || false
+          });
+        } 
+        // Create a new transaction if needed
+        else if (participant.share > 0) {
+          const transaction = await Transactions.create({
+            amount: participant.share,
+            date: expense.createdAt || new Date(),
+            description: `Share of expense: ${title}`,
+            category: category,
+            senderId: expense.senderId,     // Person who paid and should receive money
+            receiverId: participantId,      // Person who owes money
+            isSettled: participant.isSettled || false,
+            expenseId: expenseId
+          });
+          
+          // Update the participant with new transaction ID
+          participant.transactionId = transaction._id;
+        }
+      }
+    } catch (transactionError) {
+      console.error("Error updating transactions for expense:", transactionError);
+      // Continue with expense update even if transaction update fails
     }
     
     // Update the expense with the normalized data

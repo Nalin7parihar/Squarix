@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const transactionSchema = new mongoose.Schema({
   amount : {
     type : Number,
@@ -31,6 +30,11 @@ const transactionSchema = new mongoose.Schema({
   isSettled : {
     type : Boolean,
     default : false
+  },
+  expenseId : {
+    type : mongoose.Schema.Types.ObjectId,
+    ref : "Expense",
+    default : null
   }
 });
 

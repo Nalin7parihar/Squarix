@@ -1,6 +1,7 @@
 import Friend from "../model/friends.model.js";
 import users from "../model/user.model.js";
 import Expense from "../model/expense.model.js";
+import Transactions from "../model/transaction.model.js";
 
 const getFriends = async (req, res) => {
   try {
@@ -131,4 +132,84 @@ const updateFriend = async (req,res) => {
   }
 }
 
-export { getFriends, addFriend, deleteFriend, updateFriend };
+// Get expenses shared with a specific friend
+const getFriendExpenses = async (req, res) => {
+  try {
+    const { id } = req.params; // Friend's user ID
+    const userId = req.user.id; // Current user ID
+    
+    // Find expenses where both users are involved (either as sender or participant)
+    const expenses = await Expense.find({
+      $or: [
+        // Case 1: Current user is sender, friend is participant
+        { 
+          senderId: userId,
+          'participants.user': id 
+        },
+        // Case 2: Friend is sender, current user is participant
+        { 
+          senderId: id,
+          'participants.user': userId 
+        }
+      ]
+    })
+    .populate('senderId', 'name email')
+    .populate('participants.user', 'name email')
+    .populate('groupId')
+    .sort({ createdAt: -1 });
+    
+    // Calculate balances for this friendship
+    let friendOwesToUser = 0;
+    let userOwesToFriend = 0;
+    
+    expenses.forEach(expense => {
+      // If current user is the sender
+      if (expense.senderId._id.toString() === userId) {
+        const friendParticipant = expense.participants.find(
+          p => p.user._id.toString() === id && !p.isSettled
+        );
+        
+        if (friendParticipant) {
+          friendOwesToUser += friendParticipant.share;
+        }
+      }
+      // If friend is the sender
+      else if (expense.senderId._id.toString() === id) {
+        const userParticipant = expense.participants.find(
+          p => p.user._id.toString() === userId && !p.isSettled
+        );
+        
+        if (userParticipant) {
+          userOwesToFriend += userParticipant.share;
+        }
+      }
+    });
+    
+    // Update the friend relationship with the calculated balances
+    await Friend.findOneAndUpdate(
+      { user: userId, friend: id },
+      { 
+        $set: { 
+          totalOwed: friendOwesToUser,
+          totalOwes: userOwesToFriend 
+        } 
+      },
+      { upsert: true }
+    );
+    
+    res.status(200).json({
+      message: expenses.length > 0 ? "Friend expenses retrieved successfully" : "No expenses found with this friend",
+      expenses,
+      balances: {
+        friendOwes: friendOwesToUser,
+        youOwe: userOwesToFriend,
+        netBalance: friendOwesToUser - userOwesToFriend
+      }
+    });
+  } catch (error) {
+    console.error("Get friend expenses error:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+export { getFriends, addFriend, deleteFriend, updateFriend, getFriendExpenses };

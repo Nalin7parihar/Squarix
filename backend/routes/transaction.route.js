@@ -1,11 +1,12 @@
 import express from "express";
 import verifyToken from "../middleware/auth.js";
-import { getUserTransactions,addTransaction,updateTransaction,getTransactionSummary,filterTransactions,settleTransaction } from "../controllers/transaction.controller.js";
+import { getUserTransactions, addTransaction, updateTransaction, getTransactionSummary, filterTransactions, settleTransaction, requestPayment } from "../controllers/transaction.controller.js";
 const transactionRouter = express.Router();
-transactionRouter.get("/getTransactions",verifyToken,getUserTransactions);
-transactionRouter.post("/",verifyToken,addTransaction);
+transactionRouter.get("/getTransactions", verifyToken, getUserTransactions);
+transactionRouter.post("/", verifyToken, addTransaction);
 transactionRouter.put("/:id", verifyToken, updateTransaction);
-transactionRouter.get("/getSummary",verifyToken,getTransactionSummary);
-transactionRouter.get('/filter',verifyToken,filterTransactions); 
-transactionRouter.patch('/settleTransaction/:id',verifyToken,settleTransaction);
+transactionRouter.get("/getSummary", verifyToken, getTransactionSummary);
+transactionRouter.get('/filter', verifyToken, filterTransactions); 
+transactionRouter.patch('/settleTransaction/:id', verifyToken, settleTransaction);
+transactionRouter.post('/:id/request', verifyToken, requestPayment);
 export default transactionRouter;
