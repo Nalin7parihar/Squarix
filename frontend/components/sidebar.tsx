@@ -2,7 +2,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home,Users,ArrowLeftRight,CreditCard,Settings } from 'lucide-react'
+import { Home, Users, ArrowLeftRight, CreditCard, Settings, BarChart2 } from 'lucide-react'
 const Sidebar = () => {
   const pathName = usePathname();
   return (
@@ -28,6 +28,13 @@ const Sidebar = () => {
             >
               <ArrowLeftRight className="h-4 w-4" />
               <span>Activity</span>
+            </Link>
+            <Link
+              href="/transactions"
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 ${pathName === '/transactions' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'} transition-colors duration-200 hover:bg-accent hover:text-accent-foreground`}
+            >
+              <BarChart2 className="h-4 w-4" />
+              <span>Transactions</span>
             </Link>
             <Link
               href="/settleUp"

@@ -73,7 +73,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const getFriends = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/friends`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/friends`, {
         headers: {
           'Content-Type': 'application/json'
         },
@@ -113,7 +113,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const addFriend = async (name: string, email: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/friends`, {
+      const response = await fetch(`/api/friends`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json' 
@@ -147,12 +147,17 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const removeFriend = async (id: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/friends/${id}`, {
+      console.log('Removing friend with ID:', id);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/friends/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       })
 
-      if (!response.ok) throw new Error('Failed to remove friend')
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to remove friend:', errorText);
+        throw new Error('Failed to remove friend');
+      }
 
       const friendToRemove = friends.find(f => f.id === id)
       setFriends(prev => prev.filter(friend => friend.id !== id))
@@ -178,7 +183,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const getGroups = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/groups`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups`, {
         credentials: 'include',
         cache: 'no-store'
       })
@@ -206,7 +211,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const createGroup = async (name: string, description: string, members: string[]) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/groups`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description, members }),
@@ -241,7 +246,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const addToGroup = async (groupId: string, friendId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/groups/${groupId}/members`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId: friendId }),
@@ -277,7 +282,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const removeFromGroup = async (groupId: string, friendId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/groups/${groupId}/members`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId: friendId }),
@@ -313,7 +318,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   const deleteGroup = async (groupId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/groups/${groupId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups/${groupId}`, {
         method: 'DELETE',
         credentials: 'include'
       })
@@ -339,7 +344,7 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       // This endpoint will need to be implemented in the backend
-      const response = await fetch(`${API_URL}/api/groups/${groupId}/expenses`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(expense),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useContext } from "react" // Added useContext import
 import { CalendarIcon, Receipt, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -20,15 +20,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { useExpenses } from "@/contexts"
-
-// Sample data for friends with proper MongoDB ObjectId strings
-const friends = [
-  { id: "662f7f6cbd5aa1c9c3b0de01", name: "Alex Johnson" },
-  { id: "662f7f6cbd5aa1c9c3b0de02", name: "Taylor Smith" },
-  { id: "662f7f6cbd5aa1c9c3b0de03", name: "Jordan Lee" },
-  { id: "662f7f6cbd5aa1c9c3b0de04", name: "Casey Wilson" },
-]
+import { useExpenses, useFriends } from "@/contexts"
+import { useAuth } from "@/contexts" // Added AuthContext import
+import { toast } from "sonner" // Added toast import for error handling
 
 // Sample data for expense categories
 const categories = [
@@ -49,6 +43,8 @@ interface AddExpenseDialogProps {
 
 export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialogProps) {
   const { addExpense } = useExpenses()
+  const { friends } = useFriends()
+  const { user } = useAuth()// Get current user info
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [date, setDate] = useState<Date | undefined>(new Date())
@@ -70,6 +66,10 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
 
   const handleSave = async () => {
     if (!description || !amount) return
+    if (!user?._id) {
+      toast.error("User not authenticated")
+      return
+    }
 
     setIsSubmitting(true)
     
@@ -80,12 +80,32 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
       formData.append('category', categories.find(c => c.id.toString() === category)?.name || '')
       formData.append('date', date?.toISOString() || new Date().toISOString())
       
-      // Add participants data with ObjectId strings
-      const participants = selectedFriends.map(friendId => ({
-        user: friends.find(f => f.id === friendId)?.id, // This is now a MongoDB ObjectId string
-        share: Number(amount) / (selectedFriends.length + 1),
+      const totalAmount = parseFloat(amount)
+      const payerIsYou = paidBy === 'you'
+      const payerId = payerIsYou ? user._id : paidBy
+      
+      // Determine all participants who need to split the expense (including potentially the payer)
+      let participantIds = [...selectedFriends]
+      
+      // Calculate equal shares among all participants
+      const numPeopleSplitting = participantIds.length || 1
+      const sharePerPerson = totalAmount / numPeopleSplitting
+      
+      // Create participants array with proper shares
+      const participants = participantIds.map(friendId => ({
+        user: friendId,
+        share: sharePerPerson,
         isSettled: false
       }))
+      
+      console.log("Participants:", participants)
+      console.log("Total amount:", totalAmount)
+      console.log("Sum of shares:", participants.reduce((sum, p) => sum + p.share, 0))
+      
+      // If someone else paid, we need to explicitly provide the senderId
+      if (!payerIsYou) {
+        formData.append('senderId', paidBy)
+      }
       
       formData.append('participants', JSON.stringify(participants))
       
@@ -112,13 +132,15 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
       setDate(new Date())
       setCategory("1")
       setPaidBy("you")
-      setSelectedFriends([]) // Reset to empty array instead of hardcoded IDs
+      setSelectedFriends([])
       setHasReceipt(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      onOpenChange(false)
     } catch (error) {
       console.error('Error adding expense:', error)
+      toast.error("Failed to add expense. Please try again.")
     } finally {
       setIsSubmitting(false)
     }

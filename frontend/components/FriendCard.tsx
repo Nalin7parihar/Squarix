@@ -3,6 +3,8 @@ import { UserRound, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./ui/dropdown-menu"
 import { Button } from "./ui/button"
 import { useFriends } from "@/contexts"
+import { useEffect, useState, useRef } from "react"
+import { useTransactions } from "@/contexts/TransactionContext"
 
 interface Friend {
   id: string
@@ -20,7 +22,28 @@ interface FriendCardProps {
 
 const FriendCard = ({ friend, onAddExpense, onSettleUp }: FriendCardProps) => {
   const { removeFriend } = useFriends()
+  const { transactions } = useTransactions()
+  const [isAllSettled, setIsAllSettled] = useState(friend.totalOwed === 0 && friend.totalOwes === 0)
+  const hasCheckedStatus = useRef(false)
 
+  // Check if there are any unsettled transactions with this friend
+  useEffect(() => {
+    // Only check if we have transactions data and haven't checked yet
+    if (transactions.length > 0 && !hasCheckedStatus.current) {
+      // Check if there are any unsettled transactions with this friend
+      const unsettledWithFriend = transactions.some(tx => 
+        // Friend is either sender or receiver
+        ((tx.senderId.id === friend.id || tx.receiverId.id === friend.id)) && 
+        // Transaction is not settled
+        !tx.isSettled
+      )
+      
+      // Update settlement status
+      setIsAllSettled(!unsettledWithFriend)
+      hasCheckedStatus.current = true
+    }
+  }, [friend.id, transactions])
+  
   const handleRemoveFriend = async () => {
     try {
       await removeFriend(friend.id)
@@ -54,7 +77,7 @@ const FriendCard = ({ friend, onAddExpense, onSettleUp }: FriendCardProps) => {
                 You owe ${friend.totalOwes.toFixed(2)}
               </div>
             )}
-            {friend.totalOwed === 0 && friend.totalOwes === 0 && (
+            {isAllSettled && friend.totalOwed === 0 && friend.totalOwes === 0 && (
               <div className="text-sm font-medium text-muted-foreground">
                 All settled up
               </div>

@@ -56,7 +56,6 @@ export function Dashboard({ initialData }: DashboardProps) {
     <div className="flex min-h-screen flex-col bg-background">
       {/* ... Header/Sidebar if any ... */}
 
-
       <div className="flex flex-1">
         <main className="flex-1 p-4 md:p-6">
           <div className="grid gap-6">
@@ -115,7 +114,9 @@ export function Dashboard({ initialData }: DashboardProps) {
                       <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">${totalBalance.toFixed(2)}</div>
+                      <div className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        ${totalBalance.toFixed(2)}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         You are owed <span className="text-green-500">${balances.youAreOwed.toFixed(2)}</span> and you owe{" "}
                         <span className="text-red-500">${balances.youOwe.toFixed(2)}</span>
