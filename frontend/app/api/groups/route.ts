@@ -1,28 +1,50 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { API_URL } from '@/lib/config';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups/all`, {
-      credentials: 'include', // This will forward cookies automatically
+    const response = await fetch(`${API_URL}/api/groups`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      next: {
+        revalidate: 60 // Revalidate every 60 seconds
+      }
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Failed to fetch groups');
+      return NextResponse.json(
+        { success: false, message: data.message || 'Failed to fetch groups' },
+        { status: response.status }
+      );
     }
 
-    const data = await response.json();
-    return Response.json(data);
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching groups:', error);
-    return Response.json({ error: 'Failed to fetch groups' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: 'Failed to fetch groups. Please try again.' },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups/create`, {
+    if (!body.name || !body.members || !Array.isArray(body.members)) {
+      return NextResponse.json(
+        { success: false, message: 'Group name and members are required' },
+        { status: 400 }
+      );
+    }
+
+    const response = await fetch(`${API_URL}/api/groups`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,14 +53,21 @@ export async function POST(request: Request) {
       credentials: 'include',
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Failed to create group');
+      return NextResponse.json(
+        { success: false, message: data.message || 'Failed to create group' },
+        { status: response.status }
+      );
     }
 
-    const data = await response.json();
-    return Response.json(data);
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Create group error:', error);
-    return Response.json({ error: 'Failed to create group' }, { status: 500 });
+    console.error('Error creating group:', error);
+    return NextResponse.json(
+      { success: false, message: 'Failed to create group. Please try again.' },
+      { status: 500 }
+    );
   }
 }

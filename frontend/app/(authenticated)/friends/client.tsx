@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { UserRound, UserPlus, Search, Users, UserCog, DollarSign, ArrowRight } from "lucide-react"
+import { UserRound, UserPlus, Search, Users, UserCog, DollarSign, ArrowRight, PlusCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,6 +18,11 @@ import { toast } from "sonner"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFriends } from "@/contexts"
 import FriendCard from "@/components/FriendCard"
+import { AddExpenseDialog } from "@/components/add-expense-dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { useAuth } from "@/contexts"
 
 interface Friend {
   id: string
@@ -31,7 +36,7 @@ interface Group {
   id: string
   name: string
   description?: string
-  members: string[]  // Changed from Friend[] to string[]
+  members: string[]
   expenses?: GroupExpense[]
   totalExpenses?: number
 }
@@ -57,7 +62,19 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false)
   const [newFriendEmail, setNewFriendEmail] = useState("")
-  const { friends, groups, isLoading, addFriend, getFriends } = useFriends()
+  const { friends, groups, isLoading, addFriend, getFriends, createGroup, getGroups } = useFriends()
+  const { user } = useAuth()
+
+  // Add these new state variables for expense management
+  const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false)
+  const [selectedFriendForExpense, setSelectedFriendForExpense] = useState<string | null>(null)
+  const [selectedGroupForExpense, setSelectedGroupForExpense] = useState<string | null>(null)
+
+  // Add state for create group dialog
+  const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
+  const [newGroupName, setNewGroupName] = useState("")
+  const [newGroupDescription, setNewGroupDescription] = useState("")
+  const [selectedFriendsForGroup, setSelectedFriendsForGroup] = useState<string[]>([])
   
   // Initialize friends and groups from context if empty or use the initialData
   const [localFriends, setLocalFriends] = useState<Friend[]>(
@@ -103,6 +120,68 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
     }
   }
 
+  // New function to handle adding expense with a specific friend
+  const handleAddExpense = (friendId: string) => {
+    setSelectedFriendForExpense(friendId)
+    setSelectedGroupForExpense(null) // Reset group selection
+    setShowAddExpenseDialog(true)
+  }
+  
+  // New function to handle adding expense to a group
+  const handleAddGroupExpense = (groupId: string) => {
+    setSelectedGroupForExpense(groupId)
+    setSelectedFriendForExpense(null) // Reset friend selection
+    setShowAddExpenseDialog(true)
+  }
+  
+  // Handle successful expense creation
+  const handleExpenseSaved = (data: any) => {
+    setShowAddExpenseDialog(false)
+    setSelectedFriendForExpense(null)
+    setSelectedGroupForExpense(null)
+    toast.success("Expense added", {
+      description: `$${data.amount} for ${data.description} has been added.`,
+    })
+    
+    // Refresh groups data to show updated expenses
+    getGroups()
+  }
+
+  // Handle creating a new group
+  const handleCreateGroup = async () => {
+    if (!newGroupName) return
+    
+    try {
+      await createGroup(newGroupName, newGroupDescription, selectedFriendsForGroup)
+      
+      // Reset form
+      setNewGroupName("")
+      setNewGroupDescription("")
+      setSelectedFriendsForGroup([])
+      setShowCreateGroupDialog(false)
+      
+      // Refresh groups
+      await getGroups()
+      
+      toast.success("Group created", {
+        description: `Group "${newGroupName}" has been created.`
+      })
+    } catch (error) {
+      toast.error("Failed to create group", {
+        description: "Please try again."
+      })
+    }
+  }
+
+  // Toggle friend selection for group creation
+  const toggleFriendForGroup = (friendId: string) => {
+    if (selectedFriendsForGroup.includes(friendId)) {
+      setSelectedFriendsForGroup(selectedFriendsForGroup.filter((id) => id !== friendId))
+    } else {
+      setSelectedFriendsForGroup([...selectedFriendsForGroup, friendId])
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -121,10 +200,17 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button onClick={() => setShowAddFriendDialog(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Friend
-          </Button>
+          {activeTab === "friends" ? (
+            <Button onClick={() => setShowAddFriendDialog(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Friend
+            </Button>
+          ) : (
+            <Button onClick={() => setShowCreateGroupDialog(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Create Group
+            </Button>
+          )}
         </div>
       </div>
 
@@ -159,9 +245,7 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
                 <FriendCard
                   key={friend.id}
                   friend={friend}
-                  onAddExpense={() => {
-                    // TODO: Implement add expense
-                  }}
+                  onAddExpense={() => handleAddExpense(friend.id)}
                   onSettleUp={() => {
                     // TODO: Implement settle up
                   }}
@@ -205,22 +289,65 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
               {filteredGroups.map((group) => (
                 <div
                   key={group.id}
-                  className="flex items-center justify-between p-4 border rounded-lg mb-4"
+                  className="flex flex-col p-4 border rounded-lg mb-4"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex-shrink-0">
-                      <Users className="h-12 w-12 text-muted-foreground" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-shrink-0 bg-primary/10 p-2 rounded-full">
+                        <Users className="h-8 w-8 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{group.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {group.members.length} members • {group.totalExpenses ? `$${group.totalExpenses.toFixed(2)}` : '$0'} total
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">{group.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {group.members.length} members
-                      </p>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => handleAddGroupExpense(group.id)}
+                        variant="outline" 
+                        size="sm"
+                        className="text-sm"
+                      >
+                        <DollarSign className="h-3.5 w-3.5 mr-1" />
+                        Add Expense
+                      </Button>
+                      <Button
+                        variant="ghost" 
+                        size="sm"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon">
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
+                  
+                  {group.description && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {group.description}
+                    </div>
+                  )}
+                  
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium mb-2">Members:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {group.members.map((memberId) => {
+                        const member = localFriends.find(f => f.id === memberId)
+                        // Include current user
+                        const isCurrentUser = user && user._id === memberId
+                        const displayName = isCurrentUser ? 'You' : (member ? member.name : 'Unknown')
+                        
+                        return (
+                          <span 
+                            key={memberId} 
+                            className="px-2 py-1 bg-secondary text-secondary-foreground rounded-full text-xs"
+                          >
+                            {displayName}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
               ))}
             </ScrollArea>
@@ -231,8 +358,8 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
               <p className="text-muted-foreground text-center mb-4">
                 Create a group to share expenses with multiple friends at once.
               </p>
-              <Button>
-                <Users className="h-4 w-4 mr-2" />
+              <Button onClick={() => setShowCreateGroupDialog(true)}>
+                <PlusCircle className="h-4 w-4 mr-2" />
                 Create a Group
               </Button>
             </div>
@@ -240,6 +367,7 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
         </TabsContent>
       </Tabs>
 
+      {/* Add Friend Dialog */}
       <Dialog open={showAddFriendDialog} onOpenChange={setShowAddFriendDialog}>
         <DialogContent>
           <DialogHeader>
@@ -265,6 +393,84 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Group Dialog */}
+      <Dialog open={showCreateGroupDialog} onOpenChange={setShowCreateGroupDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create a new group</DialogTitle>
+            <DialogDescription>
+              Create a group to share expenses with multiple friends at once.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="group-name">Group Name</Label>
+              <Input
+                id="group-name"
+                placeholder="Vacation, Apartment, etc."
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="group-description">Description (optional)</Label>
+              <Textarea
+                id="group-description"
+                placeholder="Add some details about this group..."
+                value={newGroupDescription}
+                onChange={(e) => setNewGroupDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Add Friends to Group</Label>
+              <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
+                {localFriends.length > 0 ? (
+                  localFriends.map((friend) => (
+                    <div key={friend.id} className="flex items-center space-x-2 py-2">
+                      <Checkbox 
+                        id={`friend-${friend.id}`} 
+                        checked={selectedFriendsForGroup.includes(friend.id)}
+                        onCheckedChange={() => toggleFriendForGroup(friend.id)}
+                      />
+                      <Label htmlFor={`friend-${friend.id}`} className="cursor-pointer">
+                        {friend.name} ({friend.email})
+                      </Label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center py-2">
+                    You don't have any friends yet. Add some first!
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateGroupDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateGroup} 
+              disabled={!newGroupName || selectedFriendsForGroup.length === 0}
+            >
+              Create Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Expense Dialog */}
+      {showAddExpenseDialog && (
+        <AddExpenseDialog
+          open={showAddExpenseDialog}
+          onOpenChange={setShowAddExpenseDialog}
+          onSave={handleExpenseSaved}
+          initialSelectedFriends={selectedFriendForExpense ? [selectedFriendForExpense] : []}
+          selectedGroupId={selectedGroupForExpense}
+        />
+      )}
     </div>
   )
 }

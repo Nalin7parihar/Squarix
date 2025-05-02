@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useContext } from "react" // Added useContext import
-import { CalendarIcon, Receipt, X } from "lucide-react"
+import { useState, useRef, useContext, useEffect } from "react" // Added useContext and useEffect import
+import { CalendarIcon, Receipt, X, Users,UserPlus } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useExpenses, useFriends } from "@/contexts"
 import { useAuth } from "@/contexts" // Added AuthContext import
 import { toast } from "sonner" // Added toast import for error handling
+import { Badge } from "./ui/badge" // Import Badge for group label
 
 // Sample data for expense categories
 const categories = [
@@ -39,22 +40,61 @@ interface AddExpenseDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave?: (data: any) => void
+  initialSelectedFriends?: string[] // Add this prop to support pre-selected friends
+  selectedGroupId?: string | null // Add prop for selected group
 }
 
-export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialogProps) {
+export function AddExpenseDialog({ 
+  open, 
+  onOpenChange, 
+  onSave, 
+  initialSelectedFriends = [],
+  selectedGroupId = null
+}: AddExpenseDialogProps) {
   const { addExpense } = useExpenses()
-  const { friends } = useFriends()
+  const { friends, groups } = useFriends()
   const { user } = useAuth()// Get current user info
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const [selectedFriends, setSelectedFriends] = useState<string[]>([])
+  const [selectedFriends, setSelectedFriends] = useState<string[]>(initialSelectedFriends) // Initialize with props
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
   const [category, setCategory] = useState("1")
   const [paidBy, setPaidBy] = useState("you")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasReceipt, setHasReceipt] = useState(false)
+  
+  // Add state for group-related functionality
+  const [expenseType, setExpenseType] = useState<"individual" | "group">(selectedGroupId ? "group" : "individual")
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(selectedGroupId)
+  
+  // Find the selected group
+  const selectedGroupObj = selectedGroup ? groups.find(g => g.id === selectedGroup) : null
+
+  // Update selectedFriends when initialSelectedFriends changes
+  useEffect(() => {
+    if (initialSelectedFriends?.length) {
+      setSelectedFriends(initialSelectedFriends);
+    }
+  }, [initialSelectedFriends]);
+
+  // Update expenseType and selectedGroup when selectedGroupId changes
+  useEffect(() => {
+    if (selectedGroupId) {
+      setExpenseType("group");
+      setSelectedGroup(selectedGroupId);
+      
+      // Automatically select all group members when a group is selected
+      const group = groups.find(g => g.id === selectedGroupId);
+      if (group) {
+        setSelectedFriends(group.members);
+      }
+    } else {
+      setExpenseType("individual");
+      setSelectedGroup(null);
+    }
+  }, [selectedGroupId, groups]);
 
   const toggleFriend = (friendId: string) => {
     if (selectedFriends.includes(friendId)) {
@@ -63,6 +103,17 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
       setSelectedFriends([...selectedFriends, friendId])
     }
   }
+  
+  // Handle group selection
+  const handleGroupChange = (groupId: string) => {
+    setSelectedGroup(groupId);
+    
+    // Automatically select all group members
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      setSelectedFriends(group.members);
+    }
+  };
 
   const handleSave = async () => {
     if (!description || !amount) return
@@ -98,16 +149,18 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
         isSettled: false
       }))
       
-      console.log("Participants:", participants)
-      console.log("Total amount:", totalAmount)
-      console.log("Sum of shares:", participants.reduce((sum, p) => sum + p.share, 0))
-      
       // If someone else paid, we need to explicitly provide the senderId
       if (!payerIsYou) {
         formData.append('senderId', paidBy)
       }
       
       formData.append('participants', JSON.stringify(participants))
+      
+      // Add group information if this is a group expense
+      if (expenseType === "group" && selectedGroup) {
+        formData.append('groupId', selectedGroup)
+        formData.append('isGroupExpense', 'true')
+      }
       
       if (hasReceipt && fileInputRef.current?.files?.[0]) {
         formData.append('reciept', fileInputRef.current.files[0])
@@ -123,6 +176,7 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
           category: categories.find((c) => c.id.toString() === category)?.name,
           paidBy: paidBy === "you" ? "You" : friends.find((f) => f.id.toString() === paidBy)?.name,
           participants: selectedFriends.map((id) => friends.find((f) => f.id === id)?.name || ""),
+          group: selectedGroupObj?.name,
         })
       }
 
@@ -154,6 +208,65 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
           <DialogDescription>Enter the details of your shared expense</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label>Expense Type</Label>
+            <div className="flex gap-4">
+              <div 
+                className={`flex-1 cursor-pointer rounded-lg border p-3 text-center transition-all ${
+                  expenseType === "individual" 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "hover:border-primary/50"
+                }`}
+                onClick={() => setExpenseType("individual")}
+              >
+                <div className="flex justify-center mb-1">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium">Individual</p>
+              </div>
+              <div 
+                className={`flex-1 cursor-pointer rounded-lg border p-3 text-center transition-all ${
+                  expenseType === "group" 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "hover:border-primary/50"
+                }`}
+                onClick={() => setExpenseType("group")}
+              >
+                <div className="flex justify-center mb-1">
+                  <Users className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium">Group</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Group Selector (only visible when expenseType is 'group') */}
+          {expenseType === "group" && (
+            <div className="grid gap-2">
+              <Label htmlFor="group">Group</Label>
+              <Select 
+                value={selectedGroup || ""} 
+                onValueChange={handleGroupChange}
+              >
+                <SelectTrigger className="transition-all duration-200 hover:bg-primary/10">
+                  <SelectValue placeholder="Select a group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedGroupObj && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedGroupObj.members.length} members in this group
+                </p>
+              )}
+            </div>
+          )}
+          
           <div className="grid gap-2">
             <Label htmlFor="description">Description</Label>
             <Input
@@ -215,44 +328,69 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
               </Select>
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label>Split with</Label>
-            <div className="flex flex-wrap gap-2">
-              <AnimatePresence>
-                {friends.map((friend) => (
-                  <motion.div
-                    key={friend.id}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    whileHover={{ scale: 1.05 }}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-all duration-200",
-                      selectedFriends.includes(friend.id)
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:border-primary/50 hover:bg-primary/5",
-                    )}
-                    onClick={() => toggleFriend(friend.id)}
-                  >
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[10px]">
-                        {friend.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{friend.name}</span>
-                    {selectedFriends.includes(friend.id) && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                        <X className="ml-1 h-3 w-3" />
-                      </motion.div>
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+          
+          {/* Only show friend selector in individual expense mode or if no group is selected */}
+          {(expenseType === "individual" || !selectedGroup) && (
+            <div className="grid gap-2">
+              <Label>Split with</Label>
+              <div className="flex flex-wrap gap-2">
+                <AnimatePresence>
+                  {friends.map((friend) => (
+                    <motion.div
+                      key={friend.id}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      whileHover={{ scale: 1.05 }}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-all duration-200",
+                        selectedFriends.includes(friend.id)
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/50 hover:bg-primary/5",
+                      )}
+                      onClick={() => toggleFriend(friend.id)}
+                    >
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px]">
+                          {friend.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{friend.name}</span>
+                      {selectedFriends.includes(friend.id) && (
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                          <X className="ml-1 h-3 w-3" />
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
             </div>
-          </div>
+          )}
+          
+          {/* When a group is selected, display the group members that will be part of this expense */}
+          {expenseType === "group" && selectedGroupObj && (
+            <div className="grid gap-2">
+              <Label>Group Members</Label>
+              <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-secondary/30">
+                {selectedGroupObj.members.map((memberId) => {
+                  const member = friends.find(f => f.id === memberId);
+                  const isCurrentUser = user && user._id === memberId;
+                  const displayName = isCurrentUser ? 'You' : (member ? member.name : 'Unknown');
+                  
+                  return (
+                    <Badge key={memberId} variant="secondary" className="bg-background">
+                      {displayName}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
           <div className="grid gap-2">
             <Label>Paid by</Label>
             <Select value={paidBy} onValueChange={setPaidBy}>
@@ -305,7 +443,7 @@ export function AddExpenseDialog({ open, onOpenChange, onSave }: AddExpenseDialo
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSubmitting || !description || !amount}
+            disabled={isSubmitting || !description || !amount || (expenseType === "group" && !selectedGroup)}
             className="relative bg-gradient-to-r from-primary to-primary/80 transition-all duration-300 hover:shadow-md hover:shadow-primary/20"
           >
             {isSubmitting ? (

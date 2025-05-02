@@ -1,9 +1,14 @@
-import { Card, CardContent } from "./ui/card"
-import { UserRound, MoreHorizontal } from "lucide-react"
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./ui/dropdown-menu"
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { ArrowRight, DollarSign, UserRound, MoreHorizontal } from "lucide-react"
+import { Avatar, AvatarFallback } from "./ui/avatar"
 import { Button } from "./ui/button"
+import { AddExpenseDialog } from "./add-expense-dialog"
+import { FriendDetailDialog } from "./friend-detail-dialog"
+import { Card, CardContent } from "./ui/card"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./ui/dropdown-menu"
 import { useFriends } from "@/contexts"
-import { useEffect, useState, useRef } from "react"
 import { useTransactions } from "@/contexts/TransactionContext"
 
 interface Friend {
@@ -20,11 +25,14 @@ interface FriendCardProps {
   onSettleUp?: () => void
 }
 
-const FriendCard = ({ friend, onAddExpense, onSettleUp }: FriendCardProps) => {
+export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendCardProps) {
   const { removeFriend } = useFriends()
   const { transactions } = useTransactions()
   const [isAllSettled, setIsAllSettled] = useState(friend.totalOwed === 0 && friend.totalOwes === 0)
   const hasCheckedStatus = useRef(false)
+  const [showAddExpense, setShowAddExpense] = useState(false)
+  const [showFriendDetail, setShowFriendDetail] = useState(false)
+  const [selectedFriend, setSelectedFriend] = useState<string | null>(null)
 
   // Check if there are any unsettled transactions with this friend
   useEffect(() => {
@@ -52,59 +60,112 @@ const FriendCard = ({ friend, onAddExpense, onSettleUp }: FriendCardProps) => {
     }
   }
 
-  return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <UserRound className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-medium">{friend.name}</h3>
-              <p className="text-sm text-muted-foreground">{friend.email}</p>
-            </div>
-          </div>
+  const handleAddExpense = () => {
+    setSelectedFriend(friend.id)
+    setShowAddExpense(true)
+    if (onAddExpense) onAddExpense()
+  }
 
-          <div className="flex items-center space-x-2">
-            {friend.totalOwed > 0 && (
-              <div className="text-sm font-medium text-green-500">
-                Owes you ${friend.totalOwed.toFixed(2)}
-              </div>
-            )}
-            {friend.totalOwes > 0 && (
-              <div className="text-sm font-medium text-red-500">
-                You owe ${friend.totalOwes.toFixed(2)}
-              </div>
-            )}
-            {isAllSettled && friend.totalOwed === 0 && friend.totalOwes === 0 && (
-              <div className="text-sm font-medium text-muted-foreground">
-                All settled up
-              </div>
-            )}
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onAddExpense}>Add Expense</DropdownMenuItem>
-                <DropdownMenuItem onClick={onSettleUp}>Settle Up</DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={handleRemoveFriend}
-                  className="text-red-500"
-                >
-                  Remove Friend
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+  const handleCardClick = () => {
+    setShowFriendDetail(true)
+  }
+
+  const handleExpenseSaved = () => {
+    setShowAddExpense(false)
+    setSelectedFriend(null)
+  }
+
+  const balanceText = friend.totalOwed > friend.totalOwes
+    ? `${friend.name} owes you $${(friend.totalOwed - friend.totalOwes).toFixed(2)}`
+    : friend.totalOwed < friend.totalOwes
+    ? `You owe ${friend.name} $${(friend.totalOwes - friend.totalOwed).toFixed(2)}`
+    : "You're all settled up"
+
+  const isPositiveBalance = friend.totalOwed > friend.totalOwes
+  const isNegativeBalance = friend.totalOwed < friend.totalOwes
+  const hasBalance = isPositiveBalance || isNegativeBalance
+
+  return (
+    <>
+      <div 
+        className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border rounded-lg mb-4 cursor-pointer hover:bg-accent/20 transition-colors"
+        onClick={handleCardClick}
+      >
+        <div className="flex items-center gap-4 mb-2 md:mb-0">
+          <Avatar>
+            <AvatarFallback>
+              {friend.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h3 className="font-semibold">{friend.name}</h3>
+            <p className="text-sm text-muted-foreground">{friend.email}</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+          <div className="md:mr-8 text-sm mb-2 md:mb-0 md:text-right w-full md:w-auto">
+            {hasBalance ? (
+              <span
+                className={
+                  isPositiveBalance
+                    ? "text-green-500 font-medium"
+                    : "text-red-500 font-medium"
+                }
+              >
+                {balanceText}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{balanceText}</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddExpense();
+              }}
+              variant="outline"
+              size="sm"
+              className="text-sm"
+            >
+              <DollarSign className="h-3.5 w-3.5 mr-1" />
+              Add expense
+            </Button>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCardClick();
+              }}
+              variant="ghost"
+              size="sm"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Expense Dialog */}
+      {showAddExpense && (
+        <AddExpenseDialog
+          open={showAddExpense}
+          onOpenChange={setShowAddExpense}
+          onSave={handleExpenseSaved}
+          initialSelectedFriends={selectedFriend ? [selectedFriend] : []}
+        />
+      )}
+
+      {/* Friend Detail Dialog */}
+      <FriendDetailDialog 
+        open={showFriendDetail}
+        onOpenChange={setShowFriendDetail}
+        friend={friend}
+        onAddExpense={handleAddExpense}
+        onSettleUp={onSettleUp}
+      />
+    </>
   )
 }
-
-export default FriendCard

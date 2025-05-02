@@ -1,5 +1,6 @@
 import Friend from "../model/friends.model.js";
 import users from "../model/user.model.js";
+import Expense from "../model/expense.model.js";
 
 const getFriends = async (req, res) => {
   try {
@@ -52,24 +53,48 @@ const addFriend = async (req,res) => {
 }
 
 const deleteFriend = async (req, res) => {
-  const { id } = req.params; // id of Friend document you want to delete
+  const { id } = req.params; // id of the friend user, not Friend document
   try {
-    const friend = await Friend.findById(id);
+    // Find the Friend document that connects the current user and the friend
+    const friendRelation = await Friend.findOne({
+      user: req.user.id,
+      friend: id
+    });
 
-    if (!friend) {
-      return res.status(404).json({ message: "Friend not found" });
+    if (!friendRelation) {
+      return res.status(404).json({ message: "Friend relationship not found" });
+    }
+
+    // Check for unsettled expenses where current user is the sender and friend is a participant
+    const unsettledExpensesAsSender = await Expense.find({
+      senderId: req.user.id,
+      'participants.user': id,
+      'participants.isSettled': false
+    });
+
+    // Check for unsettled expenses where friend is the sender and current user is a participant
+    const unsettledExpensesAsReceiver = await Expense.find({
+      senderId: id,
+      'participants.user': req.user.id,
+      'participants.isSettled': false
+    });
+
+    // If there are any unsettled expenses in either direction, don't allow deletion
+    if (unsettledExpensesAsSender.length > 0 || unsettledExpensesAsReceiver.length > 0) {
+      return res.status(400).json({ 
+        message: "Cannot delete friend. You have unsettled expenses with this person.",
+        unsettledCount: unsettledExpensesAsSender.length + unsettledExpensesAsReceiver.length
+      });
     }
 
     const user = await users.findById(req.user.id);
 
-    if (!user.friends.includes(friend._id.toString())) {
-      return res.status(400).json({ message: "Friend not in your friend list" });
-    }
-
-    await Friend.findByIdAndDelete(id);
-
-    user.friends = user.friends.filter(friendId => friendId.toString() !== friend._id.toString());
+    // Remove the friend from the user's friends array
+    user.friends = user.friends.filter(friendId => friendId.toString() !== id);
     await user.save();
+
+    // Delete the Friend document
+    await Friend.findByIdAndDelete(friendRelation._id);
 
     res.status(200).json({ message: "Friend deleted successfully" });
   } catch (error) {

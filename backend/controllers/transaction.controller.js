@@ -251,7 +251,10 @@ const settleTransaction = async (req, res) => {
     });
 
     if (!expense) {
-      return res.status(404).json({ message: "Expense not found" });
+      return res.status(200).json({ 
+        message: "Transaction settled successfully",
+        transaction 
+      });
     }
 
     // Step 4: Update the participant's isSettled flag
@@ -268,14 +271,18 @@ const settleTransaction = async (req, res) => {
     );
 
     if (updated.modifiedCount === 0) {
-      return res.status(400).json({ message: "Failed to mark as settled" });
+      return res.status(400).json({ message: "Failed to mark expense as settled" });
     }
 
-    return res.status(200).json({ message: "Transaction settled successfully" });
+    return res.status(200).json({ 
+      message: "Transaction settled successfully",
+      transaction,
+      expenseUpdated: true
+    });
 
   } catch (error) {
     console.error("Error settling transaction:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 };
 export {getUserTransactions,addTransaction,updateTransaction,getTransactionSummary,filterTransactions,settleTransaction};

@@ -311,33 +311,35 @@ export default function ActivityPage() {
               </TabsList>
             </div>
             
-            <TabsContent value="all" className="pt-6 animate-in fade-in-50 duration-300">
-              <ExpenseList isLoading={isLoading} />
-            </TabsContent>
-            
-            <TabsContent value="youowe" className="pt-6 animate-in fade-in-50 duration-300">
-              <ExpenseList 
-                isLoading={isLoading}
-                title="Expenses You Owe"
-                description="Expenses where you need to pay others"
-              />
-            </TabsContent>
-            
-            <TabsContent value="owedtoyou" className="pt-6 animate-in fade-in-50 duration-300">
-              <ExpenseList 
-                isLoading={isLoading}
-                title="Expenses Owed To You"
-                description="Expenses where others need to pay you"
-              />
-            </TabsContent>
-            
-            <TabsContent value="settled" className="pt-6 animate-in fade-in-50 duration-300">
-              <ExpenseList 
-                isLoading={isLoading}
-                title="Settled Expenses"
-                description="Expenses that have been fully settled"
-              />
-            </TabsContent>
+            <div className="w-full pt-6">
+              <TabsContent value="all" className="mt-0 animate-in fade-in-50 duration-300 w-full">
+                <ExpenseList isLoading={isLoading} />
+              </TabsContent>
+              
+              <TabsContent value="youowe" className="mt-0 animate-in fade-in-50 duration-300 w-full">
+                <ExpenseList 
+                  isLoading={isLoading}
+                  title="Expenses You Owe"
+                  description="Expenses where you need to pay others"
+                />
+              </TabsContent>
+              
+              <TabsContent value="owedtoyou" className="mt-0 animate-in fade-in-50 duration-300 w-full">
+                <ExpenseList 
+                  isLoading={isLoading}
+                  title="Expenses Owed To You"
+                  description="Expenses where others need to pay you"
+                />
+              </TabsContent>
+              
+              <TabsContent value="settled" className="mt-0 animate-in fade-in-50 duration-300 w-full">
+                <ExpenseList 
+                  isLoading={isLoading}
+                  title="Settled Expenses"
+                  description="Expenses that have been fully settled"
+                />
+              </TabsContent>
+            </div>
           </Tabs>
         </div>
       </div>

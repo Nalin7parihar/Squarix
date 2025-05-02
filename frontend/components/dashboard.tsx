@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react" // Keep useEffect for potential client-side only logic if needed later
 import { ArrowLeftRight, LogOut, Plus, User } from "lucide-react"
+import { useRouter } from "next/navigation" // Changed from next/router to next/navigation
+import { useTransactions } from "@/contexts/TransactionContext" // Added the useTransactions hook
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,15 +31,32 @@ export function Dashboard({ initialData }: DashboardProps) {
   // isLoading is true only if initialData is NOT provided initially
   const [isLoading, setIsLoading] = useState(!initialData)
   const [activeTab, setActiveTab] = useState("activity")
+  
+  // Import useRouter and useTransactions for necessary functionality
+  const router = useRouter()
+  const { summary, getTransactionSummary } = useTransactions()
 
   // Use initialData directly if available, otherwise default
   const balances = initialData?.balances || { youOwe: 0, youAreOwed: 0 }
   // Use the specific 'expenses' slice meant for the dashboard list
   const dashboardExpenses = initialData?.expenses || []
-  // recentActivity might be used elsewhere or passed to context if needed
-  // const recentActivity = initialData?.recentActivity || []
-
-  // Removed the useEffect hooks that fetched data or recalculated state from context
+  
+  // Load transaction data if needed
+  useEffect(() => {
+    if (!initialData) {
+      const loadData = async () => {
+        try {
+          await getTransactionSummary()
+          setIsLoading(false)
+        } catch (error) {
+          console.error("Failed to load transaction summary", error)
+          setIsLoading(false)
+        }
+      }
+      
+      loadData()
+    }
+  }, [initialData, getTransactionSummary])
 
   const handleAddExpense = (data: any) => {
     setIsAddExpenseOpen(false)
@@ -45,12 +64,33 @@ export function Dashboard({ initialData }: DashboardProps) {
       description: `$${data.amount} for ${data.description} has been added.`,
       duration: 3000
     })
-    // TODO: Consider triggering a data refresh mechanism here if needed
-    // e.g., router.refresh() or updating a context state
+    // Refresh data after adding an expense
+    getTransactionSummary().catch(error => 
+      console.error("Failed to refresh data", error)
+    )
+  }
+
+  // Handle navigation to the Settle Up page
+  const handleSettleUp = () => {
+    router.push('/settleUp')
   }
 
   // Calculate total balance from the provided/defaulted balances
   const totalBalance = balances.youAreOwed - balances.youOwe
+
+  // Prepare friendBalances for the FriendBalances component
+  const [friendBalances, setFriendBalances] = useState<Array<{id: string, name: string, balance: number}>>([])
+  
+  useEffect(() => {
+    if (summary?.friendBalances) {
+      // Map the data to ensure all required properties are present
+      setFriendBalances(summary.friendBalances.map(friend => ({
+        id: 'id' in friend ? (friend as any).id : String(Math.random()), // Safely handle missing id
+        name: friend.name,
+        balance: friend.balance
+      })))
+    }
+  }, [summary])
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -172,7 +212,7 @@ export function Dashboard({ initialData }: DashboardProps) {
                     variant="outline"
                     size="sm"
                     className="transition-all duration-200 hover:bg-primary/10 hover:text-primary"
-                    // TODO: Add onClick handler for Settle Up
+                    onClick={handleSettleUp}
                   >
                     <ArrowLeftRight className="mr-2 h-4 w-4" />
                     Settle Up
@@ -189,8 +229,8 @@ export function Dashboard({ initialData }: DashboardProps) {
                 />
               </TabsContent>
               <TabsContent value="balances" className="mt-4 animate-in slide-in-from-right-4 duration-300">
-                {/* FriendBalances might need initialData.balances or fetch its own */}
-                <FriendBalances isLoading={isLoading} /* Pass necessary props, maybe initialData.balances? */ />
+                {/* Pass the friendBalances to the component using the correct prop name */}
+                <FriendBalances isLoading={isLoading} initialBalances={friendBalances} />
               </TabsContent>
             </Tabs>
           </div>

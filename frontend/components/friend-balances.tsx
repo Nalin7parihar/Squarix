@@ -1,46 +1,55 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeftRight } from "lucide-react"
-import { motion } from "framer-motion"
-
-// Sample data for friend balances
-const friends = [
-  {
-    id: 1,
-    name: "Alex Johnson",
-    balance: 245.5,
-    isOwed: true,
-  },
-  {
-    id: 2,
-    name: "Taylor Smith",
-    balance: 75.0,
-    isOwed: false,
-  },
-  {
-    id: 3,
-    name: "Jordan Lee",
-    balance: 32.25,
-    isOwed: true,
-  },
-  {
-    id: 4,
-    name: "Casey Wilson",
-    balance: 0,
-    isOwed: true,
-  },
-]
+import { useRouter } from "next/navigation"
+import { useTransactions } from "@/contexts/TransactionContext"
+import { fetchTransactions } from "@/app/(authenticated)/settleUp/client"
+import PeopleCard from "./PeopleCard"
 
 interface FriendBalancesProps {
   isLoading?: boolean
+  initialBalances?: Array<{
+    id: string
+    name: string
+    email?: string
+    balance: number
+  }>
 }
 
-export function FriendBalances({ isLoading = false }: FriendBalancesProps) {
-  if (isLoading) {
+export function FriendBalances({ isLoading = false, initialBalances }: FriendBalancesProps) {
+  const router = useRouter()
+  const { summary } = useTransactions()
+  const [youOweData, setYouOweData] = useState<any[]>([])
+  const [owedToYouData, setOwedToYouData] = useState<any[]>([])
+  const [loading, setLoading] = useState(isLoading)
+
+  // Fetch transaction data
+  useEffect(() => {
+    const getTransactionData = async () => {
+      setLoading(true)
+      try {
+        // Use the fetchTransactions function from the settleUp client
+        const data = await fetchTransactions('all-transactions', 'all')
+        setYouOweData(data.youOwe)
+        setOwedToYouData(data.owedToYou)
+      } catch (error) {
+        console.error("Failed to load transactions:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getTransactionData()
+  }, [])
+
+  // Navigate to SettleUp page
+  const handleSettleUp = () => {
+    router.push('/settleUp')
+  }
+
+  if (loading) {
     return (
       <Card>
         <CardHeader>
@@ -71,60 +80,54 @@ export function FriendBalances({ isLoading = false }: FriendBalancesProps) {
     )
   }
 
-  return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
-      <CardHeader>
-        <CardTitle>Friend Balances</CardTitle>
-        <CardDescription>Your current balances with friends</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {friends.map((friend, index) => (
-            <motion.div
-              key={friend.id}
-              className="flex items-center justify-between rounded-lg p-2 transition-all duration-200 hover:bg-muted/50"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.02 }}
+  // If there are no transactions at all, show a message
+  if (youOweData.length === 0 && owedToYouData.length === 0) {
+    return (
+      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
+        <CardHeader>
+          <CardTitle>Friend Balances</CardTitle>
+          <CardDescription>Your current balances with friends</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4">
+            <p className="text-muted-foreground">No transactions found</p>
+            <button 
+              onClick={handleSettleUp}
+              className="mt-4 text-primary hover:underline"
             >
-              <div className="flex items-center gap-3">
-                <Avatar className="transition-transform duration-200 hover:scale-110">
-                 
-                  <AvatarFallback>
-                    {friend.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{friend.name}</p>
-                  {friend.balance > 0 ? (
-                    <p className={`text-sm ${friend.isOwed ? "text-green-500" : "text-red-500"}`}>
-                      {friend.isOwed
-                        ? `Owes you $${friend.balance.toFixed(2)}`
-                        : `You owe $${friend.balance.toFixed(2)}`}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">All settled up</p>
-                  )}
-                </div>
-              </div>
-              {friend.balance > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="transition-all duration-200 hover:bg-primary/10 hover:text-primary hover:scale-105"
-                >
-                  <ArrowLeftRight className="mr-2 h-4 w-4" />
-                  Settle
-                </Button>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+              View all transactions
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Display "You Owe" transactions if available */}
+      {youOweData.length > 0 && (
+        <PeopleCard
+          title="People You Owe"
+          description="Your pending payments"
+          isLoading={false}
+          friends={youOweData}
+          type="you-owe"
+          handleSettleUp={handleSettleUp}
+        />
+      )}
+
+      {/* Display "Owed To You" transactions if available */}
+      {owedToYouData.length > 0 && (
+        <PeopleCard
+          title="People Who Owe You"
+          description="Pending payments to receive"
+          isLoading={false}
+          friends={owedToYouData}
+          type="owed-to-you"
+          handleSettleUp={handleSettleUp}
+        />
+      )}
+    </div>
   )
 }

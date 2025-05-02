@@ -1,6 +1,7 @@
 import Expense from "../model/expense.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import group from "../model/group.model.js";
+import Transactions from "../model/transaction.model.js";
 
 const getUserExpenses = async (req,res) => {
   try {
@@ -32,8 +33,9 @@ const getUserExpenses = async (req,res) => {
 const addExpense = async (req,res) => {
   try {
     const {id} = req.user;
-    const {title,amount,groupId,category}= req.body;
+    const {title, amount, groupId, category, senderId} = req.body;
     let {participants} = req.body;
+    
     if(!title || !amount || !participants) return res.status(400).json({message : "Please provide all the fields"});
     
     // Make sure participants is parsed if it's a string
@@ -58,6 +60,7 @@ const addExpense = async (req,res) => {
 
     // Validate total shares equal amount
     const totalShares = participants.reduce((sum, participant) => sum + participant.share, 0);
+    console.log("Total Shares:", totalShares, "Amount:", amount);
     if(Math.abs(totalShares - parseFloat(amount)) > 0.01) { // Allow small floating point differences
       return res.status(400).json({
         message: "Sum of shares must equal total amount"
@@ -80,10 +83,13 @@ const addExpense = async (req,res) => {
       reciept = uploadResult.secure_url;
     }
     
+    // Use the provided senderId if available, otherwise use the logged-in user's id
+    const actualSenderId = senderId || id;
+    
     const expense = await Expense.create({
       title,
       amount: parseFloat(amount),
-      senderId: id,
+      senderId: actualSenderId, // Use the determined sender ID
       participants,
       groupId,
       isGroupExpense,
@@ -101,6 +107,41 @@ const addExpense = async (req,res) => {
     }
     
     if(!expense) return res.status(400).json({message : "Error in creating expense"});
+    
+    // Create transactions for each participant
+    const updatedParticipants = [];
+    for (const participant of participants) {
+      // Skip participants with zero share or the sender
+      if (participant.share <= 0 || participant.user.toString() === actualSenderId.toString()) {
+        updatedParticipants.push(participant);
+        continue;
+      }
+      
+      // Create a transaction for this participant
+      const transaction = await Transactions.create({
+        amount: participant.share,
+        date: new Date(),
+        description: title,
+        category,
+        senderId: participant.user, // The participant owes money
+        receiverId: actualSenderId, // To the expense creator
+        isSettled: false
+      });
+      
+      // Update the participant with the transaction ID
+      updatedParticipants.push({
+        ...participant,
+        transactionId: transaction._id,
+        isSettled: false // Explicitly mark as unsettled
+      });
+    }
+    
+    // Update the expense with transaction IDs
+    if (updatedParticipants.length > 0) {
+      await Expense.findByIdAndUpdate(expense._id, {
+        participants: updatedParticipants
+      });
+    }
     
     // Populate expense details before sending the response
     const populatedExpense = await Expense.findById(expense._id)
