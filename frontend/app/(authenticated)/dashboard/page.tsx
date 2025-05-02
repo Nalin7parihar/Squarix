@@ -35,19 +35,32 @@ async function getInitialDashboardData() {
       next: { revalidate: 0 }
     });
 
+    // Get monthly expenses (using the filter endpoint with 'month' timeFilter)
+    console.log(`Fetching monthly expenses from: ${API_URL}/api/transactions/filter?timeFilter=month`);
+    const monthlyDataPromise = fetch(`${API_URL}/api/transactions/filter?timeFilter=month`, {
+      headers,
+      credentials: 'include',
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
+
     // Wait for all requests to complete
-    const [recentExpensesRes, balanceSummaryRes] = await Promise.all([
+    const [recentExpensesRes, balanceSummaryRes, monthlyDataRes] = await Promise.all([
       recentExpensesPromise,
-      balanceSummaryPromise
+      balanceSummaryPromise,
+      monthlyDataPromise
     ]);
 
     console.log(`Expenses response status: ${recentExpensesRes.status}`);
     console.log(`Summary response status: ${balanceSummaryRes.status}`);
+    console.log(`Monthly data response status: ${monthlyDataRes.status}`);
 
     // Handle each response individually for better error handling
     let expenses = [];
     let recentActivity = [];
     let balances = { youOwe: 0, youAreOwed: 0 };
+    let monthlyData = { total: 0, count: 0 };
+    let pendingSettlements = 0;
 
     if (recentExpensesRes.ok) {
       const expensesData = await recentExpensesRes.json();
@@ -71,7 +84,35 @@ async function getInitialDashboardData() {
       console.error('Failed to fetch balance summary:', balanceSummaryRes.status, errorText);
     }
 
-    const resultData = { expenses, balances, recentActivity };
+    if (monthlyDataRes.ok) {
+      const monthlyTransactions = await monthlyDataRes.json();
+      console.log("Monthly transactions data received:", monthlyTransactions);
+      
+      // Calculate total of monthly transactions
+      const transactions = monthlyTransactions.transactions || [];
+      const monthlyTotal = transactions.reduce((sum: number, txn: any) => sum + (txn.amount || 0), 0);
+      
+      // Count pending settlements (unsettled transactions)
+      const youOwe = monthlyTransactions.youOwe || [];
+      const owedToYou = monthlyTransactions.owedToYou || [];
+      pendingSettlements = youOwe.length + owedToYou.length;
+      
+      monthlyData = {
+        total: monthlyTotal,
+        count: transactions.length
+      };
+    } else {
+      const errorText = await monthlyDataRes.text().catch(() => 'Could not read error response');
+      console.error('Failed to fetch monthly data:', monthlyDataRes.status, errorText);
+    }
+
+    const resultData = { 
+      expenses, 
+      balances, 
+      recentActivity, 
+      monthlyData, 
+      pendingSettlements 
+    };
     console.log("Returning initial data:", resultData);
     return resultData;
   } catch (error) {
@@ -80,7 +121,9 @@ async function getInitialDashboardData() {
     return {
       expenses: [],
       balances: { youOwe: 0, youAreOwed: 0 },
-      recentActivity: []
+      recentActivity: [],
+      monthlyData: { total: 0, count: 0 },
+      pendingSettlements: 0
     };
   }
 }

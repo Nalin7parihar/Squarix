@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTransactions, Transaction } from '@/contexts';
+import { toast } from 'sonner';
 import { 
   Card, 
   CardContent, 
@@ -31,7 +32,10 @@ const TransactionDetails = () => {
     youOweTotal,
     owedToYouTotal,
     filterTransactions,
-    settleTransaction
+    settleTransaction,
+    requestPayment,
+    summary,
+    getTransactionSummary
   } = useTransactions();
   
   const [isLoading, setIsLoading] = useState(true);
@@ -39,14 +43,24 @@ const TransactionDetails = () => {
   const [timeFilter, setTimeFilter] = useState('all');
   const dataFetchedRef = useRef(false);
 
-  // Load transactions only once on component mount
+  // Load transactions and summary on component mount
   useEffect(() => {
     if (dataFetchedRef.current) return;
     
-    const loadTransactions = async () => {
+    const loadData = async () => {
       setIsLoading(true);
       try {
-        await getTransactions();
+        console.log("Starting data load...");
+        // First call filterTransactions with the active tab to ensure data is loaded
+        await filterTransactions({ 
+          tab: activeTab, 
+          timeFilter: timeFilter 
+        });
+        
+        // Also load summary data for totals
+        await getTransactionSummary();
+        
+        console.log("Data load complete");
         dataFetchedRef.current = true;
       } catch (error) {
         console.error("Failed to load transactions", error);
@@ -55,8 +69,21 @@ const TransactionDetails = () => {
       }
     };
 
-    loadTransactions();
+    loadData();
   }, []);
+
+  // Use summary data for consistent totals with dashboard
+  const totalOwedToYou = summary?.totalYouAreOwed || owedToYouTotal;
+  const totalYouOwe = summary?.totalYouOwe || youOweTotal;
+  
+  // Enhanced debug logging
+  useEffect(() => {
+    console.log("Summary data:", summary);
+    console.log("owedToYou state:", owedToYou);
+    console.log("youOwe state:", youOwe);
+    console.log("owedToYouTotal:", owedToYouTotal);
+    console.log("totalOwedToYou:", totalOwedToYou);
+  }, [summary, owedToYou, youOwe, owedToYouTotal, totalOwedToYou]);
 
   const handleFilterChange = async (tab: string, time: string) => {
     if (tab === activeTab && time === timeFilter) return;
@@ -80,9 +107,21 @@ const TransactionDetails = () => {
     if (confirm('Are you sure you want to mark this as settled?')) {
       try {
         await settleTransaction(id, 'manual');
+        // Refresh summary after settlement for consistent totals
+        await getTransactionSummary();
       } catch (error) {
         console.error("Failed to settle transaction", error);
       }
+    }
+  };
+
+  const handleRequestPayment = async (id: string) => {
+    try {
+      await requestPayment(id);
+      toast.success('Payment request sent');
+    } catch (error) {
+      console.error("Failed to request payment", error);
+      toast.error('Failed to send payment request');
     }
   };
 
@@ -97,8 +136,9 @@ const TransactionDetails = () => {
 
   // Render transaction item
   const renderTransactionItem = (transaction: Transaction) => {
-    const isPayer = transaction.receiverId.id !== transaction.senderId.id && 
-                   transaction.senderId.name === "You";
+    // Check if the current user is the sender based on the transaction data
+    // Note: This assumes the backend is properly setting senderId.name as "You" for the current user
+    const isPayer = transaction.senderId.name === "You" || transaction.senderId.name === "you";
     
     return (
       <Card key={transaction.id} className="mb-4">
@@ -125,7 +165,7 @@ const TransactionDetails = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 {isPayer ? 
                   `${transaction.receiverId.name} owes you ${formatCurrency(transaction.amount)}` : 
-                  `You owe ${transaction.receiverId.name} ${formatCurrency(transaction.amount)}`}
+                  `You owe ${transaction.senderId.name} ${formatCurrency(transaction.amount)}`}
               </p>
             </div>
             
@@ -143,12 +183,9 @@ const TransactionDetails = () => {
     );
   };
 
-  // Find appropriate transactions for each tab
-  const allTransactions = transactions;
-  const youOweTransactions = transactions.filter(tx => 
-    !tx.isSettled && tx.senderId.id === "you");
-  const owedToYouTransactions = transactions.filter(tx => 
-    !tx.isSettled && tx.receiverId.id === "you");
+  // Debug logging to check data
+  console.log("owedToYou data:", owedToYou);
+  console.log("youOwe data:", youOwe);
 
   return (
     <div className="space-y-6">
@@ -184,9 +221,9 @@ const TransactionDetails = () => {
             <TabsContent value="all" className="space-y-4">
               {isLoading ? (
                 <p>Loading transactions...</p>
-              ) : allTransactions.length > 0 ? (
+              ) : transactions.length > 0 ? (
                 <div className="space-y-4">
-                  {allTransactions.map(renderTransactionItem)}
+                  {transactions.map(renderTransactionItem)}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -197,12 +234,12 @@ const TransactionDetails = () => {
 
             <TabsContent value="owe" className="space-y-4">
               <div className="pb-4 border-b">
-                <p>Total you owe: <strong>{formatCurrency(youOweTotal)}</strong></p>
+                <p>Total you owe: <strong>{formatCurrency(totalYouOwe)}</strong></p>
               </div>
               
               {isLoading ? (
                 <p>Loading transactions...</p>
-              ) : youOwe.length > 0 ? (
+              ) : youOwe && youOwe.length > 0 ? (
                 <div className="space-y-4">
                   {youOwe.map(friend => (
                     <Card key={friend.transactionId} className="mb-4">
@@ -240,12 +277,12 @@ const TransactionDetails = () => {
 
             <TabsContent value="owed" className="space-y-4">
               <div className="pb-4 border-b">
-                <p>Total owed to you: <strong>{formatCurrency(owedToYouTotal)}</strong></p>
+                <p>Total owed to you: <strong>{formatCurrency(totalOwedToYou)}</strong></p>
               </div>
               
               {isLoading ? (
                 <p>Loading transactions...</p>
-              ) : owedToYou.length > 0 ? (
+              ) : owedToYou && owedToYou.length > 0 ? (
                 <div className="space-y-4">
                   {owedToYou.map(friend => (
                     <Card key={friend.transactionId} className="mb-4">
@@ -263,6 +300,12 @@ const TransactionDetails = () => {
                           <div>
                             <p><strong>{friend.name}</strong> owes you <strong>{formatCurrency(friend.balance)}</strong></p>
                           </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleRequestPayment(friend.transactionId)}
+                          >
+                            Request Payment
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>

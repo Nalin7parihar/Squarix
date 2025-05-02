@@ -3,15 +3,17 @@ import { API_URL } from '@/lib/config';
 
 export async function GET(request: NextRequest) {
   try {
+    // Forward the cookies from the incoming request
+    const cookieHeader = request.headers.get('cookie') || '';
+
     const response = await fetch(`${API_URL}/api/groups`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Cookie': cookieHeader, // Forward all cookies from the request
       },
       credentials: 'include',
-      next: {
-        revalidate: 60 // Revalidate every 60 seconds
-      }
+      cache: 'no-store' // Disable cache to ensure fresh data
     });
 
     const data = await response.json();
@@ -35,6 +37,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Forward the cookies from the incoming request
+    const cookieHeader = request.headers.get('cookie') || '';
     const body = await request.json();
 
     if (!body.name || !body.members || !Array.isArray(body.members)) {
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Cookie': cookieHeader, // Forward all cookies from the request
       },
       body: JSON.stringify(body),
       credentials: 'include',

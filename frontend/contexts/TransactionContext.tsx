@@ -122,8 +122,29 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       
       // Also update youOwe and owedToYou lists from this data
       if (data.summary) {
-        setYouOwe(data.summary.youOwe);
-        setOwedToYou(data.summary.owedToYou);
+        // Updated to match backend logic:
+        // youOwe = transactions where user is the receiver (needs to pay)
+        const youOweData = data.summary.youOwe.map((tx: any) => ({
+          id: tx.senderId._id,
+          name: tx.senderId.name,
+          email: tx.senderId.email,
+          balance: tx.amount,
+          date: format(new Date(tx.date), 'yyyy-MM-dd'),
+          transactionId: tx._id,
+        }));
+        
+        // owedToYou = transactions where user is the sender (should receive payment)
+        const owedToYouData = data.summary.owedToYou.map((tx: any) => ({
+          id: tx.receiverId._id,
+          name: tx.receiverId.name,
+          email: tx.receiverId.email,
+          balance: tx.amount,
+          date: format(new Date(tx.date), 'yyyy-MM-dd'),
+          transactionId: tx._id,
+        }));
+        
+        setYouOwe(youOweData);
+        setOwedToYou(owedToYouData);
         setYouOweTotal(data.summary.youOweTotal);
         setOwedToYouTotal(data.summary.owedToYouTotal);
       }
@@ -146,11 +167,20 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error('Failed to fetch transaction summary');
 
       const data = await response.json();
+      console.log("Transaction summary API response:", data);
+      
       setSummary({
         totalYouAreOwed: data.totalYouAreOwed,
         totalYouOwe: data.totalYouOwe,
         netBalance: data.netBalance,
         friendBalances: data.friendBalances,
+      });
+      
+      console.log("Set summary state to:", {
+        totalYouAreOwed: data.totalYouAreOwed,
+        totalYouOwe: data.totalYouOwe,
+        netBalance: data.netBalance,
+        friendBalancesCount: data.friendBalances?.length || 0
       });
     } catch (error) {
       console.error('Failed to fetch transaction summary:', error);
@@ -288,12 +318,25 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     try {
       // Construct query string
       const queryParams = new URLSearchParams();
-      if (params.tab) queryParams.append('tab', params.tab);
+      
+      // Fix the tab parameter to match what the backend expects
+      if (params.tab) {
+        // Convert the tab value to what the backend expects
+        if (params.tab === "owed") {
+          queryParams.append('tab', "owed");
+        } else if (params.tab === "owe") {
+          queryParams.append('tab', "owe");
+        } else {
+          queryParams.append('tab', params.tab);
+        }
+      }
+      
       if (params.timeFilter) queryParams.append('timeFilter', params.timeFilter);
       if (params.customDate) {
         queryParams.append('customDate', format(params.customDate, 'yyyy-MM-dd'));
       }
 
+      console.log("Filtering transactions with params:", queryParams.toString());
       const response = await fetch(`/api/transactions/filter?${queryParams.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
@@ -302,6 +345,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error('Failed to filter transactions');
 
       const data = await response.json();
+      console.log("Filter API response:", data);
       
       // Transform backend data to match our interfaces
       const transformedTransactions = data.transactions.map((tx: any) => ({
@@ -326,23 +370,30 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       setTransactions(transformedTransactions);
       
       // Parse the youOwe and owedToYou data
-      const youOweData: FriendWithBalance[] = data.youOwe.map((tx: any) => ({
-        id: tx.receiverId._id,
-        name: tx.receiverId.name,
-        email: tx.receiverId.email,
-        balance: tx.amount,
-        date: format(new Date(tx.date), 'yyyy-MM-dd'),
-        transactionId: tx._id,
-      }));
+      const youOweData: FriendWithBalance[] = data.youOwe && data.youOwe.length > 0 
+        ? data.youOwe.map((tx: any) => ({
+            id: tx.senderId._id,
+            name: tx.senderId.name,
+            email: tx.senderId.email,
+            balance: tx.amount,
+            date: format(new Date(tx.date), 'yyyy-MM-dd'),
+            transactionId: tx._id,
+          }))
+        : [];
       
-      const owedToYouData: FriendWithBalance[] = data.owedToYou.map((tx: any) => ({
-        id: tx.senderId._id,
-        name: tx.senderId.name,
-        email: tx.senderId.email,
-        balance: tx.amount,
-        date: format(new Date(tx.date), 'yyyy-MM-dd'),
-        transactionId: tx._id,
-      }));
+      const owedToYouData: FriendWithBalance[] = data.owedToYou && data.owedToYou.length > 0 
+        ? data.owedToYou.map((tx: any) => ({
+            id: tx.receiverId._id,
+            name: tx.receiverId.name,
+            email: tx.receiverId.email,
+            balance: tx.amount,
+            date: format(new Date(tx.date), 'yyyy-MM-dd'),
+            transactionId: tx._id,
+          }))
+        : [];
+      
+      console.log("Processed youOweData:", youOweData);
+      console.log("Processed owedToYouData:", owedToYouData);
       
       setYouOwe(youOweData);
       setOwedToYou(owedToYouData);

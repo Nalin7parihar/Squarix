@@ -79,7 +79,7 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
     ? `${friend.name} owes you $${(friend.totalOwed - friend.totalOwes).toFixed(2)}`
     : friend.totalOwed < friend.totalOwes
     ? `You owe ${friend.name} $${(friend.totalOwes - friend.totalOwed).toFixed(2)}`
-    : "You're all settled up"
+    : "" // Remove "You're all settled up" text from card view
 
   const isPositiveBalance = friend.totalOwed > friend.totalOwes
   const isNegativeBalance = friend.totalOwed < friend.totalOwes

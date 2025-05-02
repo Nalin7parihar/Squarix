@@ -36,8 +36,17 @@ export function Dashboard({ initialData }: DashboardProps) {
   const router = useRouter()
   const { summary, getTransactionSummary } = useTransactions()
 
-  // Use initialData directly if available, otherwise default
-  const balances = initialData?.balances || { youOwe: 0, youAreOwed: 0 }
+  // Use initialData directly if available, otherwise use summary from context
+  // This ensures consistent data source across the entire app
+  const balances = initialData?.balances || 
+    (summary ? { 
+      youOwe: summary.totalYouOwe || 0, 
+      youAreOwed: summary.totalYouAreOwed || 0 
+    } : { 
+      youOwe: 0, 
+      youAreOwed: 0 
+    })
+    
   // Use the specific 'expenses' slice meant for the dashboard list
   const dashboardExpenses = initialData?.expenses || []
   
@@ -163,26 +172,27 @@ export function Dashboard({ initialData }: DashboardProps) {
                       </p>
                     </CardContent>
                   </Card>
-                  {/* ... Other cards (using placeholders for now) ... */}
+                  {/* Amount Owed To You Card */}
                    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">This Month</CardTitle>
+                      <CardTitle className="text-sm font-medium">Amount Owed To You</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">$0.00</div> {/* Placeholder - Needs data */} 
+                      <div className="text-2xl font-bold text-green-500">${balances.youAreOwed.toFixed(2)}</div>
                       <p className="text-xs text-muted-foreground">
-                        {/* Placeholder - Needs data */} 
+                        Total amount currently owed to you
                       </p>
                     </CardContent>
                   </Card>
+                  {/* Amount You Owe Card */}
                   <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Pending Settlements</CardTitle>
+                      <CardTitle className="text-sm font-medium">Amount You Owe</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">0</div> {/* Placeholder - Needs data */} 
+                      <div className="text-2xl font-bold text-red-500">${balances.youOwe.toFixed(2)}</div>
                       <p className="text-xs text-muted-foreground">
-                         {/* Placeholder - Needs data */} 
+                        Total amount you currently owe
                       </p>
                     </CardContent>
                   </Card>

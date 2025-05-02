@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFriends } from "@/contexts"
 import FriendCard from "@/components/FriendCard"
 import { AddExpenseDialog } from "@/components/add-expense-dialog"
+import { GroupDetailDialog } from "@/components/group-detail-dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -73,8 +74,11 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
   // Add state for create group dialog
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
-  const [newGroupDescription, setNewGroupDescription] = useState("")
   const [selectedFriendsForGroup, setSelectedFriendsForGroup] = useState<string[]>([])
+
+  // Add state for group detail dialog
+  const [showGroupDetailDialog, setShowGroupDetailDialog] = useState(false)
+  const [selectedGroupForDetail, setSelectedGroupForDetail] = useState<Group | null>(null)
   
   // Initialize friends and groups from context if empty or use the initialData
   const [localFriends, setLocalFriends] = useState<Friend[]>(
@@ -152,11 +156,10 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
     if (!newGroupName) return
     
     try {
-      await createGroup(newGroupName, newGroupDescription, selectedFriendsForGroup)
+      await createGroup(newGroupName, "", selectedFriendsForGroup)
       
       // Reset form
       setNewGroupName("")
-      setNewGroupDescription("")
       setSelectedFriendsForGroup([])
       setShowCreateGroupDialog(false)
       
@@ -180,6 +183,12 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
     } else {
       setSelectedFriendsForGroup([...selectedFriendsForGroup, friendId])
     }
+  }
+
+  // Handle viewing group details
+  const handleViewGroupDetails = (group: Group) => {
+    setSelectedGroupForDetail(group)
+    setShowGroupDetailDialog(true)
   }
 
   return (
@@ -223,8 +232,8 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
           <TabsTrigger value="groups">
             <Users className="h-4 w-4 mr-2" />
             Groups ({isLoading ? "..." : filteredGroups.length})
-          </TabsTrigger>
-        </TabsList>
+</TabsTrigger>
+          </TabsList>
         
         <TabsContent value="friends" className="mt-4 grid gap-4">
           {isLoading ? (
@@ -316,17 +325,12 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
                       <Button
                         variant="ghost" 
                         size="sm"
+                        onClick={() => handleViewGroupDetails(group)}
                       >
                         <ArrowRight className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                  
-                  {group.description && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {group.description}
-                    </div>
-                  )}
                   
                   <div className="mt-4">
                     <h4 className="text-sm font-medium mb-2">Members:</h4>
@@ -414,16 +418,6 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="group-description">Description (optional)</Label>
-              <Textarea
-                id="group-description"
-                placeholder="Add some details about this group..."
-                value={newGroupDescription}
-                onChange={(e) => setNewGroupDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="grid gap-2">
               <Label>Add Friends to Group</Label>
               <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
                 {localFriends.length > 0 ? (
@@ -469,6 +463,17 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
           onSave={handleExpenseSaved}
           initialSelectedFriends={selectedFriendForExpense ? [selectedFriendForExpense] : []}
           selectedGroupId={selectedGroupForExpense}
+        />
+      )}
+
+      {/* Group Detail Dialog */}
+      {showGroupDetailDialog && selectedGroupForDetail && (
+        <GroupDetailDialog
+          open={showGroupDetailDialog}
+          onOpenChange={setShowGroupDetailDialog}
+          group={selectedGroupForDetail}
+          onAddExpense={() => handleAddGroupExpense(selectedGroupForDetail.id)}
+          friendsList={localFriends}
         />
       )}
     </div>

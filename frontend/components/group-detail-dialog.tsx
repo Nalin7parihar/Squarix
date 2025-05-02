@@ -13,15 +13,16 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DollarSign, ArrowRight, ArrowLeft, CalendarIcon, Clock, Search } from "lucide-react"
+import { DollarSign, Users, CalendarIcon, Clock, Search, UsersRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { formatDistanceToNow, parseISO } from "date-fns"
 import { ExpenseDetailDialog } from "./expense-detail-dialog"
 import { useAuth } from "@/contexts"
+import { toast } from "sonner"
 
-interface Expense {
+interface GroupExpense {
   _id: string
   title: string
   amount: number
@@ -41,79 +42,100 @@ interface Expense {
     isSettled: boolean
   }>
   createdAt: string
-  groupId?: {
+  groupId: {
     _id: string
     name: string
   }
   reciept?: string
-  isGroupExpense?: boolean
+  isGroupExpense: boolean
 }
 
-interface FriendDetailProps {
+interface GroupMember {
+  _id: string
+  name: string
+  email: string
+}
+
+interface GroupDetailProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  friend: {
+  group: {
+    id: string
+    name: string
+    members: string[]
+    totalExpenses?: number
+  } | null
+  onAddExpense?: () => void
+  friendsList: Array<{
     id: string
     name: string
     email: string
-    totalOwed: number
-    totalOwes: number
-  } | null
-  onAddExpense?: () => void
-  onSettleUp?: () => void
+  }>
 }
 
-export function FriendDetailDialog({ 
+export function GroupDetailDialog({ 
   open, 
   onOpenChange, 
-  friend, 
+  group, 
   onAddExpense,
-  onSettleUp
-}: FriendDetailProps) {
+  friendsList
+}: GroupDetailProps) {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("summary")
-  const [expenses, setExpenses] = useState<Expense[]>([])
+  const [expenses, setExpenses] = useState<GroupExpense[]>([])
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
+  const [selectedExpense, setSelectedExpense] = useState<GroupExpense | null>(null)
   const [showExpenseDetail, setShowExpenseDetail] = useState(false)
-  const [youOwe, setYouOwe] = useState(0)
-  const [youAreOwed, setYouAreOwed] = useState(0)
+  const [groupDetails, setGroupDetails] = useState<any>(null)
 
   useEffect(() => {
-    if (open && friend) {
-      loadFriendExpenses(friend.id)
-    }
-  }, [open, friend])
+    if (open && group) {
+      // No need to load group details separately anymore
+      loadGroupExpenses(group.id)
+      
+      // Use the group data that was passed to the component
+      // Initialize group members from the group members data
+      if (group.members && group.members.length > 0) {
+        const memberIds = group.members
+        setGroupMembers(
+          friendsList
+            .filter(friend => memberIds.includes(friend.id))
+            .map(friend => ({
+              _id: friend.id,
+              name: friend.name,
+              email: friend.email
+            }))
+        )
+      }
 
-  const loadFriendExpenses = async (friendId: string) => {
-    setIsLoading(true)
+      setGroupDetails({
+        ...group,
+        totalExpense: group.totalExpenses || 0
+      })
+      setIsLoading(false)
+    }
+  }, [open, group, friendsList])
+
+  const loadGroupExpenses = async (groupId: string) => {
     try {
-      const response = await fetch(`/api/friends/${friendId}/expenses`, {
+      const response = await fetch(`/api/groups/${groupId}/expenses`, {
         credentials: 'include'
       })
       
       if (response.ok) {
         const data = await response.json()
         setExpenses(data.expenses || [])
-        
-        // If the balances information is available in the response, use it
-        if (data.balances) {
-          // This will override the calculated balances from props, which might be outdated
-          setYouAreOwed(data.balances.friendOwes || 0)
-          setYouOwe(data.balances.youOwe || 0)
-        }
       } else {
-        console.error('Failed to fetch friend expenses')
+        console.error('Failed to fetch group expenses')
       }
     } catch (error) {
-      console.error('Error loading friend expenses:', error)
-    } finally {
-      setIsLoading(false)
+      console.error('Error loading group expenses:', error)
     }
   }
 
-  const handleExpenseClick = (expense: Expense) => {
+  const handleExpenseClick = (expense: GroupExpense) => {
     setSelectedExpense(expense)
     setShowExpenseDetail(true)
   }
@@ -121,7 +143,8 @@ export function FriendDetailDialog({
   // Filter expenses based on search query
   const filteredExpenses = expenses.filter(expense => 
     expense.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.category.toLowerCase().includes(searchQuery.toLowerCase())
+    expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    expense.senderId.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Sort expenses by date (most recent first)
@@ -129,40 +152,22 @@ export function FriendDetailDialog({
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
 
-  // Calculate what you owe and what you're owed
-  const calculateBalances = () => {
-    let youOwe = 0
-    let youAreOwed = 0
+  // Get member name from ID
+  const getMemberName = (memberId: string): string => {
+    if (user && user._id === memberId) return 'You'
     
-    expenses.forEach(expense => {
-      // If you paid for the expense
-      if (expense.senderId._id === user?._id) {
-        // Find what the friend owes you
-        const friendParticipant = expense.participants.find(
-          p => p.user._id === friend?.id
-        )
-        if (friendParticipant && !friendParticipant.isSettled) {
-          youAreOwed += friendParticipant.share
-        }
-      } 
-      // If the friend paid for the expense
-      else if (expense.senderId._id === friend?.id) {
-        // Find what you owe the friend
-        const yourParticipant = expense.participants.find(
-          p => p.user._id === user?._id
-        )
-        if (yourParticipant && !yourParticipant.isSettled) {
-          youOwe += yourParticipant.share
-        }
-      }
-    })
+    // First check in groupMembers (if available)
+    const groupMember = groupMembers.find(m => m._id === memberId)
+    if (groupMember) return groupMember.name
     
-    return { youOwe, youAreOwed }
+    // Fall back to friendsList
+    const friend = friendsList.find(f => f.id === memberId)
+    if (friend) return friend.name
+    
+    return 'Unknown Member'
   }
-  
-  const netBalance = youAreOwed - youOwe
 
-  if (!friend) return null
+  if (!group) return null
   
   return (
     <>
@@ -170,18 +175,14 @@ export function FriendDetailDialog({
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback>
-                  {friend.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="flex-shrink-0 bg-primary/10 p-2 rounded-full">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
               <div>
-                <DialogTitle className="text-xl">{friend.name}</DialogTitle>
-                <DialogDescription>{friend.email}</DialogDescription>
+                <DialogTitle className="text-xl">{group.name}</DialogTitle>
+                <DialogDescription className="text-sm">
+                  {group.members.length} members • {group.totalExpenses ? `$${group.totalExpenses.toFixed(2)}` : '$0'} total expenses
+                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -190,75 +191,31 @@ export function FriendDetailDialog({
             <TabsList className="w-full">
               <TabsTrigger value="summary" className="flex-1">Summary</TabsTrigger>
               <TabsTrigger value="expenses" className="flex-1">Expenses</TabsTrigger>
+              <TabsTrigger value="members" className="flex-1">Members</TabsTrigger>
             </TabsList>
             
             <TabsContent value="summary" className="mt-4">
               <div className="grid gap-4">
-                {/* Balance summary */}
+                {/* Total expenses */}
                 <Card className="overflow-hidden">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Balance</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className={`text-2xl font-bold ${netBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      ${Math.abs(netBalance).toFixed(2)}
+                    <div className="text-2xl font-bold">
+                      ${groupDetails?.totalExpense?.toFixed(2) || (group.totalExpenses?.toFixed(2) || '0.00')}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {netBalance > 0 ? (
-                        <>
-                          <span className="font-medium text-green-500">{friend.name} owes you</span>
-                        </>
-                      ) : netBalance < 0 ? (
-                        <>
-                          <span className="font-medium text-red-500">You owe {friend.name}</span>
-                        </>
-                      ) : (
-                        <>You're all settled up</>
-                      )}
+                      Shared across {group.members.length} members
                     </p>
                   </CardContent>
                 </Card>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* You're owed */}
-                  <Card className="overflow-hidden">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium">You're owed</p>
-                        <ArrowLeft className="h-4 w-4 text-green-500" />
-                      </div>
-                      <div className="text-lg font-bold text-green-500">
-                        ${youAreOwed.toFixed(2)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* You owe */}
-                  <Card className="overflow-hidden">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium">You owe</p>
-                        <ArrowRight className="h-4 w-4 text-red-500" />
-                      </div>
-                      <div className="text-lg font-bold text-red-500">
-                        ${youOwe.toFixed(2)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Actions */}
-                <div className="flex gap-3 mt-2">
-                  <Button className="flex-1" onClick={onAddExpense}>
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Add Expense
-                  </Button>
-                  {netBalance !== 0 && (
-                    <Button className="flex-1" variant="outline" onClick={onSettleUp}>
-                      Settle Up
-                    </Button>
-                  )}
-                </div>
+                {/* Action button */}
+                <Button className="mt-2" onClick={onAddExpense}>
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Add Group Expense
+                </Button>
                 
                 {/* Recent activity */}
                 <div className="mt-2">
@@ -283,6 +240,8 @@ export function FriendDetailDialog({
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="h-3 w-3" />
                                 {formatDistanceToNow(parseISO(expense.createdAt), { addSuffix: true })}
+                                <span>•</span>
+                                <span>Paid by {getMemberName(expense.senderId._id)}</span>
                               </div>
                             </div>
                             <div className="text-right">
@@ -299,7 +258,7 @@ export function FriendDetailDialog({
                     </div>
                   ) : (
                     <div className="text-center p-4 text-muted-foreground text-sm">
-                      No expenses found with {friend.name}
+                      No expenses found for this group
                     </div>
                   )}
                 </div>
@@ -327,49 +286,43 @@ export function FriendDetailDialog({
                 ) : sortedExpenses.length > 0 ? (
                   <div className="space-y-2">
                     {sortedExpenses.map(expense => {
-                      // Determine if you paid or they paid
                       const youPaid = expense.senderId._id === user?._id
-                      // Find the participant that represents the current user or friend
-                      const relevantParticipant = expense.participants.find(
-                        p => youPaid 
-                          ? p.user._id === friend.id 
-                          : p.user._id === user?._id
+                      
+                      // Find the participant that represents the current user
+                      const yourParticipation = expense.participants.find(
+                        p => p.user._id === user?._id
                       )
-                      const amount = relevantParticipant?.share || 0
+                      
+                      // Your share to pay or receive
+                      const yourShare = yourParticipation?.share || 0
                       
                       return (
                         <Card 
                           key={expense._id} 
-                          className="cursor-pointer hover:bg-accent/50 transition-colors"
+                          className="p-3 cursor-pointer hover:bg-accent/50 transition-colors"
                           onClick={() => handleExpenseClick(expense)}
                         >
-                          <div className="flex justify-between items-center p-3">
-                            <div className="flex gap-3 items-center">
-                              <div className={`p-2 rounded-full ${youPaid ? 'bg-green-100' : 'bg-red-100'}`}>
-                                {youPaid ? (
-                                  <ArrowLeft className={`h-4 w-4 text-green-600`} />
-                                ) : (
-                                  <ArrowRight className={`h-4 w-4 text-red-600`} />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium">{expense.title}</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>{new Date(expense.createdAt).toLocaleDateString()}</span>
-                                  •
-                                  <Badge variant="outline" className="text-xs">
-                                    {expense.category}
-                                  </Badge>
-                                </div>
+                          <div className="flex justify-between">
+                            <div>
+                              <p className="font-medium">{expense.title}</p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {formatDistanceToNow(parseISO(expense.createdAt), { addSuffix: true })}
+                                <span>•</span>
+                                <span>Paid by {getMemberName(expense.senderId._id)}</span>
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className={`font-medium ${youPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                {youPaid ? '+' : '-'}${amount.toFixed(2)}
+                              <p className="font-medium">
+                                ${expense.amount.toFixed(2)}
                               </p>
-                              <p className="text-xs text-muted-foreground">
-                                of ${expense.amount.toFixed(2)}
-                              </p>
+                              {youPaid ? (
+                                <span className="text-xs text-green-600">You paid</span>
+                              ) : (
+                                <span className="text-xs">
+                                  Your share: ${yourShare.toFixed(2)}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </Card>
@@ -379,17 +332,71 @@ export function FriendDetailDialog({
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                     <DollarSign className="h-10 w-10 text-muted-foreground mb-2 opacity-20" />
-                    <p className="text-muted-foreground">No expenses found with {friend.name}</p>
+                    <p className="text-muted-foreground">No expenses found for this group</p>
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="mt-4"
                       onClick={onAddExpense}
                     >
-                      Add your first expense
+                      Add your first group expense
                     </Button>
                   </div>
                 )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="members" className="mt-4">
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-2">
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <Card key={i} className="bg-muted/30 animate-pulse h-16"></Card>
+                    ))
+                  ) : group.members.length > 0 ? (
+                    group.members.map(memberId => {
+                      // Find member from groupMembers or friendsList
+                      const isCurrentUser = user && user._id === memberId
+                      const memberName = getMemberName(memberId)
+                      
+                      // Get email from either source
+                      let memberEmail = ""
+                      const groupMember = groupMembers.find(m => m._id === memberId)
+                      if (groupMember) memberEmail = groupMember.email
+                      else {
+                        const friend = friendsList.find(f => f.id === memberId)
+                        if (friend) memberEmail = friend.email
+                      }
+                      
+                      return (
+                        <Card key={memberId} className="p-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback>
+                                {memberName.split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">
+                                {memberName} {isCurrentUser && "(You)"}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {memberEmail}
+                              </p>
+                            </div>
+                          </div>
+                        </Card>
+                      )
+                    })
+                  ) : (
+                    <div className="text-center p-4 text-muted-foreground">
+                      No members found
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </TabsContent>
           </Tabs>

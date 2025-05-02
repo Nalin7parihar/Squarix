@@ -93,13 +93,30 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
         throw new Error('Invalid friends data format')
       }
       
-      const transformedFriends = data.map((friend: any) => ({
-        id: friend.friend._id,
-        name: friend.friend.name,
-        email: friend.friend.email,
-        totalOwed: 0,
-        totalOwes: 0
-      }))
+      // Get current user ID from localStorage to filter out the logged-in user
+      let currentUserId = '';
+      if (typeof window !== 'undefined') {
+        const userInfo = localStorage.getItem('userInfo');
+        if (userInfo) {
+          try {
+            const user = JSON.parse(userInfo);
+            currentUserId = user.id || user._id;
+          } catch (e) {
+            console.error('Error parsing user info:', e);
+          }
+        }
+      }
+      
+      // Filter out any entries where the friend ID matches the current user's ID
+      const transformedFriends = data
+        .filter((friend: any) => friend.friend._id !== currentUserId)
+        .map((friend: any) => ({
+          id: friend.friend._id,
+          name: friend.friend.name,
+          email: friend.friend.email,
+          totalOwed: 0,
+          totalOwes: 0
+        }));
       
       setFriends(transformedFriends)
     } catch (error) {

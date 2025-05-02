@@ -35,6 +35,7 @@ import { Calendar } from "@/components/ui/calendar";
 // Import components and functions from client.tsx
 import SummaryCard from "@/components/SummaryCard";
 import PeopleCard from "@/components/PeopleCard";
+import { FriendBalances } from "@/components/friend-balances";
 import { Friend, fetchTransactions, settleTransaction, requestPayment } from "./client";
 
 type TimeFilter = "all" | "today" | "week" | "month" | "year" | "custom";
@@ -256,26 +257,9 @@ export default function SettleUpPage() {
 
         {/* Tab Content */}
         <TabsContent value="all-transactions" className="mt-4 space-y-4">
-          {displayedYouOwe.length > 0 && (
-            <PeopleCard
-              title="People You Owe"
-              description="Your pending payments"
-              isLoading={isLoading}
-              friends={displayedYouOwe}
-              type="you-owe"
-              handleSettleUp={(friend: Friend) => handleSettleUp(friend, "you-owe")}
-            />
-          )}
-          {displayedOwedToYou.length > 0 && (
-            <PeopleCard
-              title="People Who Owe You"
-              description="Pending payments to receive"
-              isLoading={isLoading}
-              friends={displayedOwedToYou}
-              type="owed-to-you"
-              handleSettleUp={(friend: Friend) => handleSettleUp(friend, "owed-to-you")}
-            />
-          )}
+          {/* Friend Balances component */}
+          <FriendBalances isLoading={isLoading} />
+          
           {!isLoading && displayedYouOwe.length === 0 && displayedOwedToYou.length === 0 && (
             <div className="flex flex-col items-center justify-center h-32 border rounded-lg">
               <p className="text-muted-foreground">No transactions found for the current filter</p>

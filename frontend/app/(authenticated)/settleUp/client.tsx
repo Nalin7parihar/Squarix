@@ -67,22 +67,28 @@ export async function fetchTransactions(tab: string, timeFilter: string, customD
 
     const data = await response.json();
     
-    // Transform transactions to Friend objects for UI components
-    const currentUserId = getUserId(); // Implement this to get current user ID from session/context
+    // Get current user ID to identify which user is "you"
+    const currentUserId = getUserId();
     
+    // For "you owe" transactions, the friend is the sender (who paid)
+    // FIXED: Changed receiverId to senderId because in "you owe" transactions,
+    // the sender is the friend who paid and should be shown
     const youOwe: Friend[] = data.youOwe.map((txn: Transaction) => ({
-      id: txn.receiverId._id,
-      name: txn.receiverId.name,
-      email: txn.receiverId.email,
+      id: txn.senderId._id,
+      name: txn.senderId.name,
+      email: txn.senderId.email,
       balance: txn.amount,
       date: format(new Date(txn.date), 'yyyy-MM-dd'),
       transactionId: txn._id
     }));
     
+    // For "owed to you" transactions, the friend is the receiver (who owes you)
+    // FIXED: Changed senderId to receiverId because in "owed to you" transactions,
+    // the receiver is the friend who owes you and should be shown
     const owedToYou: Friend[] = data.owedToYou.map((txn: Transaction) => ({
-      id: txn.senderId._id,
-      name: txn.senderId.name,
-      email: txn.senderId.email,
+      id: txn.receiverId._id,
+      name: txn.receiverId.name,
+      email: txn.receiverId.email,
       balance: txn.amount,
       date: format(new Date(txn.date), 'yyyy-MM-dd'),
       transactionId: txn._id

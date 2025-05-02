@@ -6,12 +6,23 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Ensure we have the id parameter
+    if (!params?.id) {
+      return NextResponse.json(
+        { success: false, message: 'Group ID is required' },
+        { status: 400 }
+      );
+    }
+
     const groupId = params.id;
+    // Forward the cookies from the incoming request
+    const cookieHeader = request.headers.get('cookie') || '';
 
     const response = await fetch(`${API_URL}/api/groups/${groupId}/expenses`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Cookie': cookieHeader, // Forward all cookies from the request
       },
       credentials: 'include',
       cache: 'no-store'
@@ -42,6 +53,8 @@ export async function POST(
 ) {
   try {
     const groupId = params.id;
+    // Forward the cookies from the incoming request
+    const cookieHeader = request.headers.get('cookie') || '';
     const formData = await request.formData();
 
     // Get required fields
@@ -59,6 +72,9 @@ export async function POST(
     // Forward the request to the backend API
     const response = await fetch(`${API_URL}/api/groups/${groupId}/expenses`, {
       method: 'POST',
+      headers: {
+        'Cookie': cookieHeader, // Forward all cookies from the request
+      },
       body: formData,
       credentials: 'include',
     });

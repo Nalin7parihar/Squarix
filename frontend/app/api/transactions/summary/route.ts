@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { API_URL } from '@/lib/config';
 
 export async function GET() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   try {
     const response = await fetch(`${API_URL}/api/transactions/getSummary`, {
