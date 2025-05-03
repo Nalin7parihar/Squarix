@@ -1,4 +1,0 @@
-TODO 
-1. fix the transactions and friends and groups api links and implement them in frontend(fix error 404)
-2. filter the lists based on who owes money to whom 
-3. implement search bar
