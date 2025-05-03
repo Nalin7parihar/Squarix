@@ -5,7 +5,7 @@ dotenv.config();
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect("mongodb+srv://nalin7parihar:YYDNi5Vj90DGG3Y6@backenddb.35gsy.mongodb.net/SplitWise");
+    const conn = await mongoose.connect(process.env.MONGO_URI);
     console.log(`MongoDB Connected : ${conn.connection.host}`);
   } catch (error) {
     console.error(`Error: ${error.message}`);

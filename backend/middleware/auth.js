@@ -18,7 +18,7 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, "790802b77cd0623ec9a664507686153e5bbf235da748680bf5a6a21fed43bb034afb65393ba00e8ee579750f1102aa8cefcd091e8b7a030acb973527d61fbd72");
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
