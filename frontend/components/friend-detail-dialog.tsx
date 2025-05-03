@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DollarSign, ArrowRight, ArrowLeft, CalendarIcon, Clock, Search } from "lucide-react"
+import { IndianRupee, ArrowRight, ArrowLeft, CalendarIcon, Clock, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -214,7 +214,7 @@ export function FriendDetailDialog({
                   </CardHeader>
                   <CardContent>
                     <div className={`text-2xl font-bold ${netBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      ${Math.abs(netBalance).toFixed(2)}
+                      ₹{Math.abs(netBalance).toFixed(2)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {netBalance > 0 ? (
@@ -241,7 +241,7 @@ export function FriendDetailDialog({
                         <ArrowLeft className="h-4 w-4 text-green-500" />
                       </div>
                       <div className="text-lg font-bold text-green-500">
-                        ${youAreOwed.toFixed(2)}
+                        ₹{youAreOwed.toFixed(2)}
                       </div>
                     </CardContent>
                   </Card>
@@ -254,7 +254,7 @@ export function FriendDetailDialog({
                         <ArrowRight className="h-4 w-4 text-red-500" />
                       </div>
                       <div className="text-lg font-bold text-red-500">
-                        ${youOwe.toFixed(2)}
+                        ₹{youOwe.toFixed(2)}
                       </div>
                     </CardContent>
                   </Card>
@@ -263,7 +263,7 @@ export function FriendDetailDialog({
                 {/* Actions */}
                 <div className="flex gap-3 mt-2">
                   <Button className="flex-1" onClick={onAddExpense}>
-                    <DollarSign className="h-4 w-4 mr-2" />
+                    <IndianRupee className="h-4 w-4 mr-2" />
                     Add Expense
                   </Button>
                   {netBalance !== 0 && (
@@ -300,7 +300,7 @@ export function FriendDetailDialog({
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                ${expense.amount.toFixed(2)}
+                                ₹{expense.amount.toFixed(2)}
                               </p>
                               <Badge variant="outline" className="text-xs">
                                 {expense.category}
@@ -378,10 +378,10 @@ export function FriendDetailDialog({
                             </div>
                             <div className="text-right">
                               <p className={`font-medium ${youPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                {youPaid ? '+' : '-'}${amount.toFixed(2)}
+                                {youPaid ? '+' : '-'}₹{amount.toFixed(2)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                of ${expense.amount.toFixed(2)}
+                                of ₹{expense.amount.toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -391,7 +391,7 @@ export function FriendDetailDialog({
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                    <DollarSign className="h-10 w-10 text-muted-foreground mb-2 opacity-20" />
+                    <IndianRupee className="h-10 w-10 text-muted-foreground mb-2 opacity-20" />
                     <p className="text-muted-foreground">No expenses found with {friend.name}</p>
                     <Button 
                       variant="outline" 

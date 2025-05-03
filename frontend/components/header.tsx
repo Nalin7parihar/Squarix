@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react'
 import Link from 'next/link'
-import {  ArrowLeftRight, Bell, CreditCard, DollarSign, Home, Menu,  Search, Settings, Users,User,LogOut } from 'lucide-react';
+import {  ArrowLeftRight, Bell, CreditCard, IndianRupee, Home, Menu,  Search, Settings, Users,User,LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -40,7 +40,7 @@ const Header = () => {
       <SheetContent side="left" className="w-72">
         <nav className="grid gap-6 text-lg font-medium">
           <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
-            <DollarSign className="h-6 w-6" />
+            <IndianRupee className="h-6 w-6" />
             <span>Squarix</span>
           </Link>
           <Link
@@ -82,7 +82,7 @@ const Header = () => {
       </SheetContent>
     </Sheet>
     <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
-      <DollarSign className="h-6 w-6 text-primary" />
+      <IndianRupee className="h-6 w-6 text-primary" />
       <span>Squarix</span>
     </Link>
     

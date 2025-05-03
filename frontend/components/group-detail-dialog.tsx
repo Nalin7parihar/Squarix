@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DollarSign, Users, CalendarIcon, Clock, Search, UsersRound } from "lucide-react"
+import { IndianRupee, Users, CalendarIcon, Clock, Search, UsersRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -181,7 +181,7 @@ export function GroupDetailDialog({
               <div>
                 <DialogTitle className="text-xl">{group.name}</DialogTitle>
                 <DialogDescription className="text-sm">
-                  {group.members.length} members • {group.totalExpenses ? `$${group.totalExpenses.toFixed(2)}` : '$0'} total expenses
+                  {group.members.length} members • {group.totalExpenses ? `₹${group.totalExpenses.toFixed(2)}` : '₹0'} total expenses
                 </DialogDescription>
               </div>
             </div>
@@ -203,7 +203,7 @@ export function GroupDetailDialog({
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      ${groupDetails?.totalExpense?.toFixed(2) || (group.totalExpenses?.toFixed(2) || '0.00')}
+                      ₹{groupDetails?.totalExpense?.toFixed(2) || (group.totalExpenses?.toFixed(2) || '0.00')}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       Shared across {group.members.length} members
@@ -213,7 +213,7 @@ export function GroupDetailDialog({
                 
                 {/* Action button */}
                 <Button className="mt-2" onClick={onAddExpense}>
-                  <DollarSign className="h-4 w-4 mr-2" />
+                  <IndianRupee className="h-4 w-4 mr-2" />
                   Add Group Expense
                 </Button>
                 
@@ -246,7 +246,7 @@ export function GroupDetailDialog({
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                ${expense.amount.toFixed(2)}
+                                ₹{expense.amount.toFixed(2)}
                               </p>
                               <Badge variant="outline" className="text-xs">
                                 {expense.category}
@@ -314,13 +314,13 @@ export function GroupDetailDialog({
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                ${expense.amount.toFixed(2)}
+                                ₹{expense.amount.toFixed(2)}
                               </p>
                               {youPaid ? (
                                 <span className="text-xs text-green-600">You paid</span>
                               ) : (
                                 <span className="text-xs">
-                                  Your share: ${yourShare.toFixed(2)}
+                                  Your share: ₹{yourShare.toFixed(2)}
                                 </span>
                               )}
                             </div>
@@ -331,7 +331,7 @@ export function GroupDetailDialog({
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                    <DollarSign className="h-10 w-10 text-muted-foreground mb-2 opacity-20" />
+                    <IndianRupee className="h-10 w-10 text-muted-foreground mb-2 opacity-20" />
                     <p className="text-muted-foreground">No expenses found for this group</p>
                     <Button 
                       variant="outline" 

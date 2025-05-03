@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ArrowRight, DollarSign, MoreHorizontal } from "lucide-react"
+import { ArrowRight, IndianRupee, MoreHorizontal } from "lucide-react"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { Button } from "./ui/button"
 import { AddExpenseDialog } from "./add-expense-dialog"
@@ -64,7 +64,7 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
       setCalculatedYouAreOwed(youAreOwed)
       setIsAllSettled(!hasUnsettledTransactions)
       
-      console.log(`Balance with ${friend.name}: You owe $${youOwe}, You are owed $${youAreOwed}`)
+      console.log(`Balance with ${friend.name}: You owe ₹${youOwe}, You are owed ₹${youAreOwed}`)
     }
   }, [friend.id, friend.name, transactions])
   
@@ -95,9 +95,9 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
   const netBalance = calculatedYouAreOwed - calculatedYouOwe
   
   const balanceText = netBalance > 0
-    ? `${friend.name} owes you $${netBalance.toFixed(2)}`
+    ? `${friend.name} owes you ₹${netBalance.toFixed(2)}`
     : netBalance < 0
-    ? `You owe ${friend.name} $${Math.abs(netBalance).toFixed(2)}`
+    ? `You owe ${friend.name} ₹${Math.abs(netBalance).toFixed(2)}`
     : ""
 
   const isPositiveBalance = netBalance > 0
@@ -150,7 +150,7 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
               size="sm"
               className="text-sm"
             >
-              <DollarSign className="h-3.5 w-3.5 mr-1" />
+              <IndianRupee className="h-3.5 w-3.5 mr-1" />
               Add expense
             </Button>
             <Button
