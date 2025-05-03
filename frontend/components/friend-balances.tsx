@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { useTransactions } from "@/contexts/TransactionContext"
 import { fetchTransactions } from "@/app/(authenticated)/settleUp/client"
 import PeopleCard from "./PeopleCard"
+import { PaymentDialog } from "./payment-dialog"
 
 interface FriendBalancesProps {
   isLoading?: boolean
@@ -24,6 +25,8 @@ export function FriendBalances({ isLoading = false, initialBalances }: FriendBal
   const [youOweData, setYouOweData] = useState<any[]>([])
   const [owedToYouData, setOwedToYouData] = useState<any[]>([])
   const [loading, setLoading] = useState(isLoading)
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
+  const [selectedFriend, setSelectedFriend] = useState<any>(null)
 
   // Fetch transaction data
   useEffect(() => {
@@ -44,9 +47,21 @@ export function FriendBalances({ isLoading = false, initialBalances }: FriendBal
     getTransactionData()
   }, [])
 
-  // Navigate to SettleUp page
-  const handleSettleUp = () => {
-    router.push('/settleUp')
+  // Handle opening the payment dialog
+  const handlePayNow = (friend: any) => {
+    setSelectedFriend(friend)
+    setIsPaymentDialogOpen(true)
+  }
+
+  // Navigate to SettleUp page for "View All" or "Request" actions
+  const handleSettleUp = (friend?: any) => {
+    if (friend) {
+      // For "Request" button in the "People Who Owe You" section
+      router.push('/settleUp?tab=owed')
+    } else {
+      // For "View All" button
+      router.push('/settleUp')
+    }
   }
 
   if (loading) {
@@ -113,7 +128,7 @@ export function FriendBalances({ isLoading = false, initialBalances }: FriendBal
           isLoading={false}
           friends={youOweData}
           type="you-owe"
-          handleSettleUp={handleSettleUp}
+          handleSettleUp={handlePayNow}
         />
       )}
 
@@ -126,6 +141,15 @@ export function FriendBalances({ isLoading = false, initialBalances }: FriendBal
           friends={owedToYouData}
           type="owed-to-you"
           handleSettleUp={handleSettleUp}
+        />
+      )}
+
+      {/* Payment Dialog */}
+      {selectedFriend && (
+        <PaymentDialog
+          open={isPaymentDialogOpen}
+          onOpenChange={setIsPaymentDialogOpen}
+          friend={selectedFriend}
         />
       )}
     </div>

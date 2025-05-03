@@ -119,9 +119,7 @@ const addExpense = async (req,res) => {
           continue;
         }
         
-        // FIXED: Correctly set the senderId and receiverId for the transaction
-        // The person who paid (actualSenderId) is the sender - they should receive money
-        // The participant is the receiver - they owe money to the sender
+
         const transaction = await Transactions.create({
           amount: participant.share,
           date: expense.createdAt || new Date(),

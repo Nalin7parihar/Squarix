@@ -9,7 +9,7 @@ export async function PATCH(
   try {
     const { id } = params;
     const body = await request.json();
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     const response = await fetch(
       `${API_URL}/api/transactions/settleTransaction/${id}`,

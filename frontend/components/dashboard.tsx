@@ -13,10 +13,7 @@ import { FriendBalances } from "./friend-balances"
 import { AddExpenseDialog } from "./add-expense-dialog"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
-// Removed useExpenses import as we rely on initialData
-// import { useExpenses } from "@/contexts"
 
-// Define the props with initial data from server-side rendering
 type DashboardProps = {
   initialData?: {
     expenses: any[]; // These are the first 5 expenses for the dashboard list

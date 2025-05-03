@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { formatDistanceToNow, parseISO } from "date-fns"
-import { Split, Users, UserRound, Search } from "lucide-react"
+import { Split, Users, Search } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
@@ -133,10 +133,15 @@ export function ExpenseList({
           // Current user must be the payer
           if (senderId !== user?._id) return false;
           
-          // At least one participant hasn't settled
-          return expense.participants?.some(
-            (p: Participant) => (p.user._id !== user?._id && p.user.id !== user?._id) && !p.isSettled
+          // Check if at least one participant hasn't settled (excluding the current user)
+          const hasUnsettledParticipants = expense.participants?.some(
+            (p: Participant) => {
+              const isCurrentUser = p.user._id === user?._id || p.user.id === user?._id;
+              return !isCurrentUser && !p.isSettled;
+            }
           );
+          
+          return hasUnsettledParticipants;
         });
         setDisplayedExpenses(owedToUserExpenses as unknown as Expense[]);
       } else {

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useRef, useContext, useEffect } from "react" // Added useContext and useEffect import
+import { useState, useRef, useEffect } from "react" // Added useContext and useEffect import
 import { CalendarIcon, Receipt, X, Users,UserPlus } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"

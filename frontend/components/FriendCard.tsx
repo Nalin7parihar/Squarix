@@ -1,13 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ArrowRight, DollarSign, UserRound, MoreHorizontal } from "lucide-react"
+import { ArrowRight, DollarSign, MoreHorizontal } from "lucide-react"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { Button } from "./ui/button"
 import { AddExpenseDialog } from "./add-expense-dialog"
 import { FriendDetailDialog } from "./friend-detail-dialog"
-import { Card, CardContent } from "./ui/card"
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./ui/dropdown-menu"
 import { useFriends } from "@/contexts"
 import { useTransactions } from "@/contexts/TransactionContext"
 
@@ -28,29 +26,47 @@ interface FriendCardProps {
 export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendCardProps) {
   const { removeFriend } = useFriends()
   const { transactions } = useTransactions()
-  const [isAllSettled, setIsAllSettled] = useState(friend.totalOwed === 0 && friend.totalOwes === 0)
-  const hasCheckedStatus = useRef(false)
+  const [isAllSettled, setIsAllSettled] = useState(true)
   const [showAddExpense, setShowAddExpense] = useState(false)
   const [showFriendDetail, setShowFriendDetail] = useState(false)
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null)
+  const [calculatedYouOwe, setCalculatedYouOwe] = useState(0)
+  const [calculatedYouAreOwed, setCalculatedYouAreOwed] = useState(0)
 
-  // Check if there are any unsettled transactions with this friend
+  // Calculate actual balances with this friend from the transactions
   useEffect(() => {
-    // Only check if we have transactions data and haven't checked yet
-    if (transactions.length > 0 && !hasCheckedStatus.current) {
-      // Check if there are any unsettled transactions with this friend
-      const unsettledWithFriend = transactions.some(tx => 
-        // Friend is either sender or receiver
-        ((tx.senderId.id === friend.id || tx.receiverId.id === friend.id)) && 
-        // Transaction is not settled
-        !tx.isSettled
-      )
+    if (transactions.length > 0) {
+      let youOwe = 0
+      let youAreOwed = 0
+      let hasUnsettledTransactions = false
       
-      // Update settlement status
-      setIsAllSettled(!unsettledWithFriend)
-      hasCheckedStatus.current = true
+      // Find all transactions involving this friend
+      const friendTransactions = transactions.filter(tx => {
+        const isFriendSender = tx.senderId.id === friend.id
+        const isFriendReceiver = tx.receiverId.id === friend.id
+        return (isFriendSender || isFriendReceiver) && !tx.isSettled
+      })
+      
+      // For each transaction, determine if you owe or are owed
+      friendTransactions.forEach(tx => {
+        if (tx.senderId.id === friend.id) {
+          // Friend is sender, you are receiver - you owe them
+          youOwe += tx.amount
+          hasUnsettledTransactions = true
+        } else if (tx.receiverId.id === friend.id) {
+          // You are sender, friend is receiver - they owe you
+          youAreOwed += tx.amount
+          hasUnsettledTransactions = true
+        }
+      })
+      
+      setCalculatedYouOwe(youOwe)
+      setCalculatedYouAreOwed(youAreOwed)
+      setIsAllSettled(!hasUnsettledTransactions)
+      
+      console.log(`Balance with ${friend.name}: You owe $${youOwe}, You are owed $${youAreOwed}`)
     }
-  }, [friend.id, transactions])
+  }, [friend.id, friend.name, transactions])
   
   const handleRemoveFriend = async () => {
     try {
@@ -75,14 +91,17 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
     setSelectedFriend(null)
   }
 
-  const balanceText = friend.totalOwed > friend.totalOwes
-    ? `${friend.name} owes you $${(friend.totalOwed - friend.totalOwes).toFixed(2)}`
-    : friend.totalOwed < friend.totalOwes
-    ? `You owe ${friend.name} $${(friend.totalOwes - friend.totalOwed).toFixed(2)}`
-    : "" // Remove "You're all settled up" text from card view
+  // Use the calculated balances instead of the static totalOwed/totalOwes
+  const netBalance = calculatedYouAreOwed - calculatedYouOwe
+  
+  const balanceText = netBalance > 0
+    ? `${friend.name} owes you $${netBalance.toFixed(2)}`
+    : netBalance < 0
+    ? `You owe ${friend.name} $${Math.abs(netBalance).toFixed(2)}`
+    : ""
 
-  const isPositiveBalance = friend.totalOwed > friend.totalOwes
-  const isNegativeBalance = friend.totalOwed < friend.totalOwes
+  const isPositiveBalance = netBalance > 0
+  const isNegativeBalance = netBalance < 0
   const hasBalance = isPositiveBalance || isNegativeBalance
 
   return (
@@ -162,7 +181,12 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
       <FriendDetailDialog 
         open={showFriendDetail}
         onOpenChange={setShowFriendDetail}
-        friend={friend}
+        friend={{
+          ...friend,
+          // Pass the accurately calculated balances to the dialog
+          totalOwed: calculatedYouAreOwed,
+          totalOwes: calculatedYouOwe
+        }}
         onAddExpense={handleAddExpense}
         onSettleUp={onSettleUp}
       />

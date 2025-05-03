@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
 import { LogOut } from "lucide-react"
 import { useAuth } from "@/contexts"
 import { toast } from "sonner"
@@ -120,21 +119,6 @@ function AccountTab({ isLoading }: Props) {
                 >
                   {isUpdating ? "Updating..." : "Update Password"}
                 </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <h3 className="font-medium">Two-Factor Authentication</h3>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Enable 2FA</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Add an extra layer of security to your account
-                  </p>
-                </div>
-                <Switch />
               </div>
             </div>
 

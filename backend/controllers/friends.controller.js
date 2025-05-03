@@ -1,7 +1,6 @@
 import Friend from "../model/friends.model.js";
 import users from "../model/user.model.js";
 import Expense from "../model/expense.model.js";
-import Transactions from "../model/transaction.model.js";
 
 const getFriends = async (req, res) => {
   try {

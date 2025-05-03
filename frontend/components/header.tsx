@@ -85,22 +85,15 @@ const Header = () => {
       <DollarSign className="h-6 w-6 text-primary" />
       <span>Squarix</span>
     </Link>
+    
+    {/* Quote display */}
+    <div className="hidden md:flex items-center mx-auto">
+      <p className="text-sm italic text-muted-foreground">
+        "Financial peace isn't the acquisition of stuff. It's learning to live on less than you make."
+      </p>
+    </div>
+    
     <div className="ml-auto flex items-center gap-4">
-      <form className="relative hidden md:flex">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search expenses..."
-          className="w-64 rounded-lg bg-background pl-8 transition-all duration-200 focus:w-80"
-        />
-      </form>
-      <Button variant="outline" size="icon" className="relative transition-all duration-200 hover:bg-primary/10">
-        <Bell className="h-5 w-5" />
-        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground animate-in zoom-in-50 duration-300">
-          3
-        </span>
-        <span className="sr-only">Notifications</span>
-      </Button>
       <div className="flex items-center space-x-2">
         {user && (
           <DropdownMenu>

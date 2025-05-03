@@ -35,21 +35,29 @@ export interface Friend {
   transactionId: string;
 }
 
+// Modified fetchTransactions function to ensure consistent transaction data
 export async function fetchTransactions(tab: string, timeFilter: string, customDate?: Date) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     
     // Construct query parameters
     const params = new URLSearchParams();
-    if (tab !== "all-transactions") {
-      params.append("tab", tab);
+    
+    // Convert tab value to what the backend expects
+    if (tab === "you-owe") {
+      params.append("tab", "owe");
+    } else if (tab === "owed-to-you") {
+      params.append("tab", "owed");
     }
+    
     if (timeFilter !== "all") {
       params.append("timeFilter", timeFilter);
     }
     if (timeFilter === "custom" && customDate) {
       params.append("customDate", format(customDate, 'yyyy-MM-dd'));
     }
+
+    console.log("Fetching transactions with params:", params.toString());
 
     // Make API request to backend server
     const response = await fetch(`${baseUrl}/api/transactions/filter?${params.toString()}`, {
@@ -66,39 +74,49 @@ export async function fetchTransactions(tab: string, timeFilter: string, customD
     }
 
     const data = await response.json();
+    console.log("API response data:", data);
     
     // Get current user ID to identify which user is "you"
     const currentUserId = getUserId();
     
-    // For "you owe" transactions, the friend is the sender (who paid)
-    // FIXED: Changed receiverId to senderId because in "you owe" transactions,
-    // the sender is the friend who paid and should be shown
-    const youOwe: Friend[] = data.youOwe.map((txn: Transaction) => ({
+    // Process the youOwe list - these are transactions where you're the receiver (and need to pay)
+    // For "you owe" transactions, the friend is the sender who paid and should be shown
+    const youOwe = data.youOwe ? data.youOwe.map((txn: Transaction) => ({
       id: txn.senderId._id,
       name: txn.senderId.name,
       email: txn.senderId.email,
       balance: txn.amount,
       date: format(new Date(txn.date), 'yyyy-MM-dd'),
       transactionId: txn._id
-    }));
+    })) : [];
     
-    // For "owed to you" transactions, the friend is the receiver (who owes you)
-    // FIXED: Changed senderId to receiverId because in "owed to you" transactions,
-    // the receiver is the friend who owes you and should be shown
-    const owedToYou: Friend[] = data.owedToYou.map((txn: Transaction) => ({
+    // Process the owedToYou list - these are transactions where you're the sender (and should receive money)
+    // For "owed to you" transactions, the friend is the receiver who owes you and should be shown
+    const owedToYou = data.owedToYou ? data.owedToYou.map((txn: Transaction) => ({
       id: txn.receiverId._id,
       name: txn.receiverId.name,
       email: txn.receiverId.email,
       balance: txn.amount,
       date: format(new Date(txn.date), 'yyyy-MM-dd'),
       transactionId: txn._id
-    }));
+    })) : [];
+
+    // Calculate totals to ensure they match what's displayed in summary
+    const youOweTotal = data.youOweTotal || youOwe.reduce((sum: number, friend: Friend) => sum + friend.balance, 0);
+    const owedToYouTotal = data.owedToYouTotal || owedToYou.reduce((sum: number, friend: Friend) => sum + friend.balance, 0);
+
+    console.log("Processed transaction data:", {
+      youOwe: youOwe.length,
+      owedToYou: owedToYou.length,
+      youOweTotal,
+      owedToYouTotal
+    });
 
     return {
       youOwe,
       owedToYou,
-      youOweTotal: data.youOweTotal || 0,
-      owedToYouTotal: data.owedToYouTotal || 0
+      youOweTotal,
+      owedToYouTotal
     };
   } catch (error) {
     console.error("Error fetching transactions:", error);

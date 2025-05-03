@@ -89,6 +89,7 @@ export function FriendDetailDialog({
   const loadFriendExpenses = async (friendId: string) => {
     setIsLoading(true)
     try {
+      // First, let's get all expenses involving this friend
       const response = await fetch(`/api/friends/${friendId}/expenses`, {
         credentials: 'include'
       })
@@ -97,11 +98,13 @@ export function FriendDetailDialog({
         const data = await response.json()
         setExpenses(data.expenses || [])
         
-        // If the balances information is available in the response, use it
+        // If the API provides balance information directly, use it
         if (data.balances) {
-          // This will override the calculated balances from props, which might be outdated
           setYouAreOwed(data.balances.friendOwes || 0)
           setYouOwe(data.balances.youOwe || 0)
+        } else {
+          // Otherwise, calculate balances from the expenses
+          calculateBalancesFromExpenses(data.expenses || [])
         }
       } else {
         console.error('Failed to fetch friend expenses')
@@ -111,6 +114,47 @@ export function FriendDetailDialog({
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Calculate balances from the expense list
+  const calculateBalancesFromExpenses = (expenseList: Expense[]) => {
+    let calculatedYouOwe = 0
+    let calculatedYouAreOwed = 0
+    
+    expenseList.forEach(expense => {
+      // You paid for this expense (you should receive money)
+      if (expense.senderId._id === user?._id) {
+        // Find what the friend owes you from this expense
+        const friendParticipant = expense.participants.find(
+          p => p.user._id === friend?.id || 
+               (typeof p.user === 'object' && p.user._id === friend?.id)
+        )
+        
+        if (friendParticipant && !friendParticipant.isSettled) {
+          calculatedYouAreOwed += friendParticipant.share
+        }
+      } 
+      // Friend paid for this expense (you owe them)
+      else if (expense.senderId._id === friend?.id) {
+        // Find what you owe the friend from this expense
+        const yourParticipant = expense.participants.find(
+          p => p.user._id === user?._id || 
+               (typeof p.user === 'object' && p.user._id === user?._id)
+        )
+        
+        if (yourParticipant && !yourParticipant.isSettled) {
+          calculatedYouOwe += yourParticipant.share
+        }
+      }
+    })
+    
+    setYouOwe(calculatedYouOwe)
+    setYouAreOwed(calculatedYouAreOwed)
+    
+    console.log("Calculated balances:", {
+      youOwe: calculatedYouOwe,
+      youAreOwed: calculatedYouAreOwed
+    })
   }
 
   const handleExpenseClick = (expense: Expense) => {
@@ -128,37 +172,6 @@ export function FriendDetailDialog({
   const sortedExpenses = [...filteredExpenses].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
-
-  // Calculate what you owe and what you're owed
-  const calculateBalances = () => {
-    let youOwe = 0
-    let youAreOwed = 0
-    
-    expenses.forEach(expense => {
-      // If you paid for the expense
-      if (expense.senderId._id === user?._id) {
-        // Find what the friend owes you
-        const friendParticipant = expense.participants.find(
-          p => p.user._id === friend?.id
-        )
-        if (friendParticipant && !friendParticipant.isSettled) {
-          youAreOwed += friendParticipant.share
-        }
-      } 
-      // If the friend paid for the expense
-      else if (expense.senderId._id === friend?.id) {
-        // Find what you owe the friend
-        const yourParticipant = expense.participants.find(
-          p => p.user._id === user?._id
-        )
-        if (yourParticipant && !yourParticipant.isSettled) {
-          youOwe += yourParticipant.share
-        }
-      }
-    })
-    
-    return { youOwe, youAreOwed }
-  }
   
   const netBalance = youAreOwed - youOwe
 

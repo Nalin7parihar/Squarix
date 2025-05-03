@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import {  useState } from "react"
 import { 
   Dialog, 
   DialogContent, 
@@ -12,10 +12,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, Receipt, Users, UserPlus, AlertCircle } from "lucide-react"
+import { CalendarIcon, Receipt, Users, AlertCircle } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
 
 interface Participant {
@@ -241,6 +240,9 @@ export function ExpenseDetailDialog({
       {isImageExpanded && expense.reciept && (
         <Dialog open={isImageExpanded} onOpenChange={setIsImageExpanded}>
           <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black/90">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Receipt Image</DialogTitle>
+            </DialogHeader>
             <div className="flex justify-end p-2">
               <Button 
                 variant="ghost" 
