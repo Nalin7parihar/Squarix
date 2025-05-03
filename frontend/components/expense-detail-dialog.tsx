@@ -93,8 +93,8 @@ export function ExpenseDetailDialog({
   
   const userShare = currentUserParticipant?.share || 0
   const userStatus = isUserPayer 
-    ? `You paid $${expense.amount.toFixed(2)} and are owed $${(expense.amount - userShare).toFixed(2)}`
-    : `You owe $${userShare.toFixed(2)}`
+    ? `You paid ₹${expense.amount.toFixed(2)} and are owed ₹${(expense.amount - userShare).toFixed(2)}`
+    : `You owe ₹${userShare.toFixed(2)}`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,6 +159,7 @@ export function ExpenseDetailDialog({
             <div className="space-y-2">
               {expense.participants.map((participant) => {
                 const isCurrentUser = participant.user._id === currentUserId || participant.user.id === currentUserId;
+                const participantName = isCurrentUser ? "You" : (participant.user.name || "Unknown User");
                 
                 return (
                   <div 
@@ -172,7 +173,7 @@ export function ExpenseDetailDialog({
                         </AvatarFallback>
                       </Avatar>
                       <span>
-                        {isCurrentUser ? "You" : participant.user.name}
+                        {participantName}
                       </span>
                     </div>
                     <div className="flex items-center">

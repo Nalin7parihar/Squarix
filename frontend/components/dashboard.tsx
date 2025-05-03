@@ -67,7 +67,7 @@ export function Dashboard({ initialData }: DashboardProps) {
   const handleAddExpense = (data: any) => {
     setIsAddExpenseOpen(false)
     toast("Expense added", {
-      description: `₹${data.amount} for ${data.description} has been added.`,
+      description: `$${data.amount} for ${data.description} has been added.`,
       duration: 3000
     })
     // Refresh data after adding an expense
@@ -161,11 +161,11 @@ export function Dashboard({ initialData }: DashboardProps) {
                     </CardHeader>
                     <CardContent>
                       <div className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        ₹{totalBalance.toFixed(2)}
+                        ${totalBalance.toFixed(2)}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        You are owed <span className="text-green-500">₹{balances.youAreOwed.toFixed(2)}</span> and you owe{" "}
-                        <span className="text-red-500">₹{balances.youOwe.toFixed(2)}</span>
+                        You are owed <span className="text-green-500">${balances.youAreOwed.toFixed(2)}</span> and you owe{" "}
+                        <span className="text-red-500">${balances.youOwe.toFixed(2)}</span>
                       </p>
                     </CardContent>
                   </Card>
@@ -175,7 +175,7 @@ export function Dashboard({ initialData }: DashboardProps) {
                       <CardTitle className="text-sm font-medium">Amount Owed To You</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-500">₹{balances.youAreOwed.toFixed(2)}</div>
+                      <div className="text-2xl font-bold text-green-500">${balances.youAreOwed.toFixed(2)}</div>
                       <p className="text-xs text-muted-foreground">
                         Total amount currently owed to you
                       </p>
@@ -187,7 +187,7 @@ export function Dashboard({ initialData }: DashboardProps) {
                       <CardTitle className="text-sm font-medium">Amount You Owe</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-red-500">₹{balances.youOwe.toFixed(2)}</div>
+                      <div className="text-2xl font-bold text-red-500">${balances.youOwe.toFixed(2)}</div>
                       <p className="text-xs text-muted-foreground">
                         Total amount you currently owe
                       </p>
@@ -211,8 +211,8 @@ export function Dashboard({ initialData }: DashboardProps) {
                   </TabsTrigger>
                   <TabsTrigger value="balances" className="transition-all duration-200">
                     Friend Balances
-</TabsTrigger>
-                  </TabsList>
+                  </TabsTrigger>
+                </TabsList>
                 {/* ... Settle Up Button ... */}
                  <div className="hidden items-center gap-2 md:flex">
                   <Button

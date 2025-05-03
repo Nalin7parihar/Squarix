@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { UserRound, UserPlus, Search, Users, UserCog, IndianRupee, ArrowRight, PlusCircle } from "lucide-react"
+import { UserRound, UserPlus, Search, Users, UserCog, DollarSign, ArrowRight, PlusCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -319,7 +319,7 @@ export default function FriendsPageClient({ initialData }: FriendsPageClientProp
                         size="sm"
                         className="text-sm"
                       >
-                        <IndianRupee className="h-3.5 w-3.5 mr-1" />
+                        <DollarSign className="h-3.5 w-3.5 mr-1" />
                         Add Expense
                       </Button>
                       <Button

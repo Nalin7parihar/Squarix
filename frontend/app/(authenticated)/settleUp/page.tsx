@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   CreditCard,
-  IndianRupee,
+  DollarSign,
   Wallet,
   Filter,
   Calendar as CalendarIcon,
@@ -328,7 +328,7 @@ export default function SettleUpPage() {
             <div className="grid gap-2">
               <Label htmlFor="amount">Amount</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                 <Input
                   id="amount"
                   type="number"
@@ -354,7 +354,7 @@ export default function SettleUpPage() {
                   </div>
                    <div className="flex items-center space-x-2">
                     <RadioGroupItem value="bank" id="bank" />
-                    <Label htmlFor="bank" className="flex items-center cursor-pointer"><IndianRupee className="h-4 w-4 mr-2" /> Bank</Label>
+                    <Label htmlFor="bank" className="flex items-center cursor-pointer"><DollarSign className="h-4 w-4 mr-2" /> Bank</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -365,7 +365,7 @@ export default function SettleUpPage() {
               onClick={settleType === "you-owe" ? handlePayment : handleRequestPayment}
               disabled={isLoading}
             >
-              {settleType === "you-owe" ? "Pay" : "Request"} ₹{amount}
+              {settleType === "you-owe" ? "Pay" : "Request"} ${amount}
             </Button>
           </DialogFooter>
         </DialogContent>

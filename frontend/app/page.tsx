@@ -15,8 +15,7 @@ import {
   Users,
   Utensils,
   ShoppingBag,
-  LogIn,
-  IndianRupee
+  LogIn
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -71,7 +70,7 @@ function LandingPage() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 text-lg font-bold">
-            <IndianRupee className="h-6 w-6 text-primary" />
+            <DollarSign className="h-6 w-6 text-primary" />
             <span>Squarix</span>
           </div>
 
@@ -513,7 +512,7 @@ function LandingPage() {
         <div className="container">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center gap-2 text-lg font-bold">
-              <IndianRupee className="h-6 w-6 text-primary" />
+              <DollarSign className="h-6 w-6 text-primary" />
               <span>Squarix</span>
             </div>
 

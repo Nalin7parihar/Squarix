@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import "dotenv/config.js";
+import "dotenv/config.js"
 const verifyToken = (req, res, next) => {
   // Check for token in cookies first - look for both "token" and "accessToken"
   const cookieToken = req.cookies.token || req.cookies.accessToken;
