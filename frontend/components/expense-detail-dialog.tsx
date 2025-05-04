@@ -55,6 +55,22 @@ interface ExpenseDetailProps {
   currentUserId?: string;
 }
 
+// Helper function to consistently handle user IDs
+const getUserId = (user: any): string | undefined => {
+  if (!user) return undefined;
+  
+  // Handle string ID
+  if (typeof user === 'string') return user;
+  
+  // Handle object with _id
+  if (typeof user === 'object' && user._id) return user._id.toString();
+  
+  // Handle object with id
+  if (typeof user === 'object' && user.id) return user.id.toString();
+  
+  return undefined;
+};
+
 export function ExpenseDetailDialog({ 
   open, 
   onOpenChange, 
@@ -82,13 +98,13 @@ export function ExpenseDetailDialog({
       .toUpperCase()
   }
 
-  // Calculate total amount paid/owed by current user
+  // Calculate total amount paid/owed by current user 
   const currentUserParticipant = expense.participants.find(
-    p => p.user._id === currentUserId || p.user.id === currentUserId
+    p => getUserId(p.user) === currentUserId
   )
   
   const isUserPayer = typeof expense.senderId === 'object' 
-    ? expense.senderId._id === currentUserId
+    ? getUserId(expense.senderId) === currentUserId
     : expense.senderId === currentUserId;
   
   const userShare = currentUserParticipant?.share || 0
@@ -158,7 +174,7 @@ export function ExpenseDetailDialog({
             <h3 className="text-sm font-medium mb-2">Split between</h3>
             <div className="space-y-2">
               {expense.participants.map((participant) => {
-                const isCurrentUser = participant.user._id === currentUserId || participant.user.id === currentUserId;
+                const isCurrentUser = getUserId(participant.user) === currentUserId;
 const participantName = isCurrentUser ? "You" : (participant.user.name || "Unknown User");
                 
                 return (
@@ -211,7 +227,7 @@ const participantName = isCurrentUser ? "You" : (participant.user.name || "Unkno
           )}
           
           {/* Warning for unsettled expenses */}
-          {expense.participants.some(p => (!p.isSettled && (p.user._id === currentUserId || p.user.id === currentUserId))) && (
+          {expense.participants.some(p => (!p.isSettled && (getUserId(p.user) === currentUserId))) && (
             <div className="rounded-md bg-yellow-50 p-3 mt-2 border border-yellow-200">
               <div className="flex">
                 <div className="flex-shrink-0">

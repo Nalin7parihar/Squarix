@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { toast } from 'sonner'
-import { API_URL } from '@/lib/config'
 
 // Types
 export interface Friend {

@@ -63,6 +63,22 @@ interface FriendDetailProps {
   onSettleUp?: () => void
 }
 
+// Add a helper function to consistently get user IDs regardless of object structure
+const getUserId = (user: any): string | undefined => {
+  if (!user) return undefined;
+  
+  // Handle string ID
+  if (typeof user === 'string') return user;
+  
+  // Handle object with _id
+  if (typeof user === 'object' && user._id) return user._id.toString();
+  
+  // Handle object with id
+  if (typeof user === 'object' && user.id) return user.id.toString();
+  
+  return undefined;
+};
+
 export function FriendDetailDialog({ 
   open, 
   onOpenChange, 
@@ -126,8 +142,7 @@ export function FriendDetailDialog({
       if (expense.senderId._id === user?._id) {
         // Find what the friend owes you from this expense
         const friendParticipant = expense.participants.find(
-          p => p.user._id === friend?.id || 
-               (typeof p.user === 'object' && p.user._id === friend?.id)
+          p => getUserId(p.user) === friend?.id
         )
         
         if (friendParticipant && !friendParticipant.isSettled) {
@@ -138,8 +153,7 @@ export function FriendDetailDialog({
       else if (expense.senderId._id === friend?.id) {
         // Find what you owe the friend from this expense
         const yourParticipant = expense.participants.find(
-          p => p.user._id === user?._id || 
-               (typeof p.user === 'object' && p.user._id === user?._id)
+          p => getUserId(p.user) === user?._id
         )
         
         if (yourParticipant && !yourParticipant.isSettled) {
@@ -345,8 +359,8 @@ export function FriendDetailDialog({
                       // Find the participant that represents the current user or friend
                       const relevantParticipant = expense.participants.find(
                         p => youPaid 
-                          ? p.user._id === friend.id 
-                          : p.user._id === user?._id
+                          ? getUserId(p.user) === friend.id 
+                          : getUserId(p.user) === user?._id
                       )
                       const amount = relevantParticipant?.share || 0
                       

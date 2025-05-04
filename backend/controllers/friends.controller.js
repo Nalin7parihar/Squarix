@@ -12,7 +12,6 @@ const getFriends = async (req, res) => {
         select: "name email"
       })
       .lean();
-
     if (!friends) {
       return res.status(200).json([]); // Return empty array instead of 404
     }
@@ -29,20 +28,20 @@ const getFriends = async (req, res) => {
 
 const addFriend = async (req,res) => {
   try {
-    const {id} = req.body;
+    const {email} = req.body;
     const user = await users.findById(req.user.id);
-    const friend = await users.findById(id);
+    const friend = await users.findOne({email});
 
     if (!friend) {
       return res.status(404).json({ message: "Friend not found" });
     }
 
-    if (user.friends.includes(id)) {
+    if (user.friends.includes(friend._id.toString())) {
       return res.status(400).json({ message: "Friend already added" });
     }
-    const newFriend = await Friend.create({user : req.user.id, friend : id});
+    const newFriend = await Friend.create({user : req.user.id, friend : friend._id});
 
-    user.friends.push(id);
+    user.friends.push(newFriend._id);
     await user.save();
 
     res.status(200).json({ message: "Friend added successfully" ,newFriend});

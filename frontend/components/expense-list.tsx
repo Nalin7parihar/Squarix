@@ -57,6 +57,22 @@ interface ExpenseListProps {
   showSearch?: boolean;
 }
 
+// Helper function to consistently get user IDs regardless of data structure
+const getUserId = (user: any): string | undefined => {
+  if (!user) return undefined;
+  
+  // Handle string ID
+  if (typeof user === 'string') return user;
+  
+  // Handle object with _id
+  if (typeof user === 'object' && user._id) return user._id.toString();
+  
+  // Handle object with id
+  if (typeof user === 'object' && user.id) return user.id.toString();
+  
+  return undefined;
+};
+
 export function ExpenseList({ 
   title = "Expenses", 
   description = "Your recent expenses and shared payments",
@@ -100,7 +116,7 @@ export function ExpenseList({
         // Only show expenses where the current user's participation is settled
         const settledExpenses = expenses.filter((expense: any) => {
           const userParticipant = expense.participants?.find(
-            (p: Participant) => p.user._id === user?._id || p.user.id === user?._id
+            (p: Participant) => getUserId(p.user) === getUserId(user)
           );
           return userParticipant?.isSettled === true;
         });
@@ -108,16 +124,14 @@ export function ExpenseList({
       } else if (title === "Expenses You Owe") {
         // Only show expenses where the current user owes money
         const owedExpenses = expenses.filter((expense: any) => {
-          const senderId = typeof expense.senderId === 'object' 
-            ? expense.senderId._id 
-            : expense.senderId;
+          const senderId = getUserId(expense.senderId);
           
           // Current user is not the payer
-          if (senderId === user?._id) return false;
+          if (senderId === getUserId(user)) return false;
           
           // Find if current user is a participant who hasn't settled
           const userParticipant = expense.participants?.find(
-            (p: Participant) => (p.user._id === user?._id || p.user.id === user?._id) && !p.isSettled
+            (p: Participant) => getUserId(p.user) === getUserId(user) && !p.isSettled
           );
           
           return !!userParticipant;
@@ -126,17 +140,15 @@ export function ExpenseList({
       } else if (title === "Expenses Owed To You") {
         // Only show expenses where others owe money to the current user
         const owedToUserExpenses = expenses.filter((expense: any) => {
-          const senderId = typeof expense.senderId === 'object' 
-            ? expense.senderId._id 
-            : expense.senderId;
+          const senderId = getUserId(expense.senderId);
           
           // Current user must be the payer
-          if (senderId !== user?._id) return false;
+          if (senderId !== getUserId(user)) return false;
           
           // Check if at least one participant hasn't settled (excluding the current user)
           const hasUnsettledParticipants = expense.participants?.some(
             (p: Participant) => {
-              const isCurrentUser = p.user._id === user?._id || p.user.id === user?._id;
+              const isCurrentUser = getUserId(p.user) === getUserId(user);
               return !isCurrentUser && !p.isSettled;
             }
           );
@@ -213,18 +225,14 @@ export function ExpenseList({
                   const isGroupExpense = expense.isGroupExpense || expense.groupId;
                   
                   // Get sender ID based on different possible formats
-                  const senderIdValue = typeof expense.senderId === 'object' 
-                    ? expense.senderId._id || expense.senderId.id
-                    : expense.senderId;
+                  const senderIdValue = getUserId(expense.senderId);
                   
                   // Determine if the current user is the payer
-                  const isPayer = senderIdValue === user?._id;
+                  const isPayer = senderIdValue === getUserId(user);
                   
                   // Find the participant entry for the current user
                   const userParticipant = expense.participants?.find(
-                    (p: Participant) => {
-                      return p.user._id === user?._id || p.user.id === user?._id;
-                    }
+                    (p: Participant) => getUserId(p.user) === getUserId(user)
                   );
                   
                   // Calculate the user's amount in this expense

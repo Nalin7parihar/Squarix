@@ -1,6 +1,6 @@
 import { Card,CardContent,CardHeader,CardDescription,CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {motion} from 'framer-motion';
 

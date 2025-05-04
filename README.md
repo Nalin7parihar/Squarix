@@ -1,158 +1,88 @@
-# 💸 Squarix - Effortless Expense Splitting
+💸 Smart Expense Sharing App
+A full-stack MERN-based expense-sharing platform that helps individuals or groups manage their expenses efficiently. This project focuses on providing an intuitive UI, secure user authentication, and seamless expense tracking.
 
-Squarix is a full-stack web application designed to help users track shared expenses with friends and groups, making it easy to see who owes whom and settle debts without awkward conversations.  
-I built this project as an inspiration to master backend development and build a scalable, real-world MERN-based platform.
+🔥 Features
 
----
+👥 Authentication & User Roles
 
-## 🔥 Features
+Login/Signup for Users
 
-🧾 **Expense Tracking**  
-• Add individual or group expenses with description, amount, category, date, and payer details.  
+Role-based access control
 
-👥 **Friend Management**  
-• Add friends via email and view balances with each person.  
+JWT authentication (stored in localStorage)
 
-👨‍👩‍👧‍👦 **Group Management**  
-• Create groups, manage members, and track group-level expenses.  
+💰 Expense Management
 
-🧮 **Smart Splitting**  
-• Automatically splits expenses between participants.  
+Add and categorize expenses
 
-📊 **Real-Time Balances**  
-• View total owed/owing and detailed balances with friends/groups.  
+Split expenses with multiple people
 
-✅ **Settlement**  
-• Mark expenses or complete balances as settled.  
+Track individual and group expenses
 
-📬 **Payment Requests**  
-• Send reminders or requests to settle debts.  
+🔍 Search and Filter
 
-📈 **Dashboard**  
-• Quick snapshot of your balance, recent activity, and pending settlements.  
+Search for expenses by category or date
 
-🕒 **Activity Feed**  
-• Chronological list of all expense-related actions.  
+View all expenses or a specific user's expenses
 
-🔐 **Authentication**  
-• Secure JWT-based login and signup.  
+🔄 Real-Time Updates with WebSockets
 
-🧾 **Receipt Upload**  
-• Attach images to expenses using Cloudinary.
+Live updates for expense entries and settlements
 
----
+🚀 Deployment
 
-## 🛠 Tech Stack
+Backend: Render
 
-### 🧠 Backend
-- Node.js  
-- Express.js  
-- MongoDB + Mongoose  
-- JWT (Authentication)  
-- Cloudinary (Image uploads)  
-- Bcrypt (Password hashing)
+Frontend: Vercel
 
-### 🎨 Frontend
-- Next.js (React Framework)  
-- TypeScript  
-- Tailwind CSS  
-- Shadcn/UI (Component library)  
-- date-fns (Date utilities)  
-- Sonner (Toast notifications)  
-- Context API (State Management)  
-- Fetch API (Data fetching)
+Database: MongoDB Atlas
 
----
+🛠 Tech Stack
 
-## ⚙️ Getting Started
+🧠 Backend
 
-### 📦 Backend Setup
+Node.js
 
-1. Navigate to the backend directory:
-```bash
-cd backend
-```
+Express.js
 
-2. Install dependencies:
-```bash
-npm install
-# or
-yarn install
-```
+MongoDB (Mongoose)
 
-3. Create a `.env` file with:
-```env
-PORT=5000
-MONGO_URI=<your_mongodb_connection_string>
-JWT_SECRET=<your_jwt_secret_key>
-CLOUDINARY_CLOUD_NAME=<your_cloudinary_cloud_name>
-CLOUDINARY_API_KEY=<your_cloudinary_api_key>
-CLOUDINARY_API_SECRET=<your_cloudinary_api_secret>
-```
+Socket.IO
 
-4. (Optional) Seed the database:
-```bash
-npm run seed
-```
+JWT for auth
 
-5. Start the backend server:
-```bash
-npm start
-# or
-npm run dev
-```
+CORS configured
 
----
+🎨 Frontend
 
-### 💻 Frontend Setup
+React.js + Vite
 
-1. Navigate to the frontend directory:
-```bash
-cd frontend
-```
+Tailwind CSS
 
-2. Install dependencies:
-```bash
-npm install
-# or
-yarn install
-```
+Context API for state management
 
-3. Create a `.env.local` file:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
-```
+React Toastify (notifications)
 
-4. Start the frontend server:
-```bash
-npm run dev
-# or
-yarn dev
-```
+Fetch API for data fetching
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+🚧 Known Limitations
 
----
+LocalStorage-based JWT auth (can be improved to HttpOnly cookies)
 
-## 📁 Project Structure
+Some pages may not be fully functional
 
-```
-Squarix/
-├── backend/
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   └── utils/
-├── frontend/
-│   ├── components/
-│   ├── pages/
-│   ├── hooks/
-│   └── context/
-```
+Basic error handling; limited responsiveness on some screens
 
----
+📚 Lessons Learned
 
-## 🧑‍💻 Developed By
+Built full-stack MERN app from scratch
 
-**Nalin Parihar**  
-[GitHub](https://github.com/) • [LinkedIn](https://www.linkedin.com/)
+Implemented real-time features with Socket.IO
+
+Gained experience deploying full-stack apps using Render and Vercel
+
+Understood backend APIs, MongoDB schemas, and state management in React
+
+🧑‍💻 Developed By
+Nalin Parihar
+GitHub • LinkedIn

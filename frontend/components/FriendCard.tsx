@@ -23,6 +23,22 @@ interface FriendCardProps {
   onSettleUp?: () => void
 }
 
+// Helper function to consistently get user IDs regardless of data structure
+const getUserId = (user: any): string | undefined => {
+  if (!user) return undefined;
+  
+  // Handle string ID
+  if (typeof user === 'string') return user;
+  
+  // Handle object with _id
+  if (typeof user === 'object' && user._id) return user._id.toString();
+  
+  // Handle object with id
+  if (typeof user === 'object' && user.id) return user.id.toString();
+  
+  return undefined;
+};
+
 export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendCardProps) {
   const { removeFriend } = useFriends()
   const { transactions } = useTransactions()
@@ -42,18 +58,18 @@ export default function FriendCard({ friend, onAddExpense, onSettleUp }: FriendC
       
       // Find all transactions involving this friend
       const friendTransactions = transactions.filter(tx => {
-        const isFriendSender = tx.senderId.id === friend.id
-        const isFriendReceiver = tx.receiverId.id === friend.id
+        const isFriendSender = getUserId(tx.senderId) === friend.id
+        const isFriendReceiver = getUserId(tx.receiverId) === friend.id
         return (isFriendSender || isFriendReceiver) && !tx.isSettled
       })
       
       // For each transaction, determine if you owe or are owed
       friendTransactions.forEach(tx => {
-        if (tx.senderId.id === friend.id) {
+        if (getUserId(tx.senderId) === friend.id) {
           // Friend is sender, you are receiver - you owe them
           youOwe += tx.amount
           hasUnsettledTransactions = true
-        } else if (tx.receiverId.id === friend.id) {
+        } else if (getUserId(tx.receiverId) === friend.id) {
           // You are sender, friend is receiver - they owe you
           youAreOwed += tx.amount
           hasUnsettledTransactions = true

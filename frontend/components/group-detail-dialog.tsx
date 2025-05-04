@@ -20,7 +20,6 @@ import { Input } from "@/components/ui/input"
 import { formatDistanceToNow, parseISO } from "date-fns"
 import { ExpenseDetailDialog } from "./expense-detail-dialog"
 import { useAuth } from "@/contexts"
-import { toast } from "sonner"
 
 interface GroupExpense {
   _id: string

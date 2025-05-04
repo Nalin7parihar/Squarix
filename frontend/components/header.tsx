@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
-import {  ArrowLeftRight, Bell, CreditCard, DollarSign, Home, Menu,  Search, Settings, Users,User,LogOut } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input"
+import {  ArrowLeftRight, CreditCard, DollarSign, Home, Menu, Settings, Users } from 'lucide-react';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from './ui/button';
 import { 
@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel 
 } from "@/components/ui/dropdown-menu"
-import { toast } from 'sonner';
 import { useAuth } from "@/contexts"; // Import useAuth
 import { useRouter } from "next/navigation";
 
