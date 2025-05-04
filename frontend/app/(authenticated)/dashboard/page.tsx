@@ -19,7 +19,7 @@ async function getInitialDashboardData() {
     }
     
     // Fetch data from API endpoints with proper credentials
-    console.log(`Fetching expenses from: ${API_URL}/api/expenses/getExpenses`);
+  
     const recentExpensesPromise = fetch(`${API_URL}/api/expenses/getExpenses`, {
       headers,
       credentials: 'include',
@@ -27,7 +27,7 @@ async function getInitialDashboardData() {
       next: { revalidate: 0 }
     });
 
-    console.log(`Fetching summary from: ${API_URL}/api/transactions/getSummary`);
+
     const balanceSummaryPromise = fetch(`${API_URL}/api/transactions/getSummary`, {
       headers,
       credentials: 'include',
@@ -36,7 +36,7 @@ async function getInitialDashboardData() {
     });
 
     // Get monthly expenses (using the filter endpoint with 'month' timeFilter)
-    console.log(`Fetching monthly expenses from: ${API_URL}/api/transactions/filter?timeFilter=month`);
+ 
     const monthlyDataPromise = fetch(`${API_URL}/api/transactions/filter?timeFilter=month`, {
       headers,
       credentials: 'include',
