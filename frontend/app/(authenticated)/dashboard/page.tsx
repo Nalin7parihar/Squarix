@@ -1,6 +1,7 @@
 import { Dashboard } from "@/components/dashboard"
 import { cookies } from 'next/headers'
 import { API_URL } from '@/lib/config'
+import { Transaction } from "@/contexts";
 
 async function getInitialDashboardData() {
   console.log("Attempting to fetch dashboard data...");
@@ -90,7 +91,7 @@ async function getInitialDashboardData() {
       
       // Calculate total of monthly transactions
       const transactions = monthlyTransactions.transactions || [];
-      const monthlyTotal = transactions.reduce((sum: number, txn: any) => sum + (txn.amount || 0), 0);
+      const monthlyTotal = transactions.reduce((sum: number, txn: Transaction) => sum + (txn.amount || 0), 0);
       
       // Count pending settlements (unsettled transactions)
       const youOwe = monthlyTransactions.youOwe || [];

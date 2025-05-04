@@ -16,13 +16,6 @@ import {
   TabsTrigger 
 } from "@/components/ui/tabs"
 import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card"
-import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
@@ -41,10 +34,8 @@ import {
 import { 
   ArrowDownUp, 
   Calendar as CalendarIcon,
-  Filter, 
-  MoreHorizontal, 
+  Filter,  
   RefreshCcw, 
-  Search, 
   X 
 } from "lucide-react"
 import { format } from "date-fns"
