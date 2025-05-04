@@ -9,7 +9,6 @@ import {
   CardHeader, 
   CardTitle, 
   CardDescription,
-  CardFooter 
 } from '@/components/ui/card';
 import { 
   Select, 
@@ -28,7 +27,6 @@ const TransactionDetails = () => {
     transactions,
     youOwe, 
     owedToYou, 
-    getTransactions,
     youOweTotal,
     owedToYouTotal,
     filterTransactions,
