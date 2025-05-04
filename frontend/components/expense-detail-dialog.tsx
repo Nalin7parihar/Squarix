@@ -159,7 +159,7 @@ export function ExpenseDetailDialog({
             <div className="space-y-2">
               {expense.participants.map((participant) => {
                 const isCurrentUser = participant.user._id === currentUserId || participant.user.id === currentUserId;
-                const participantName = isCurrentUser ? "You" : (participant.user.name || "Unknown User");
+const participantName = isCurrentUser ? "You" : (participant.user.name || "Unknown User");
                 
                 return (
                   <div 
@@ -173,7 +173,7 @@ export function ExpenseDetailDialog({
                         </AvatarFallback>
                       </Avatar>
                       <span>
-                        {participantName}
+                        {isCurrentUser ? "You" : participant.user.name}
                       </span>
                     </div>
                     <div className="flex items-center">
