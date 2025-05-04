@@ -35,6 +35,6 @@ app.use("/api/friends",friendRouter);
 app.use("/api/transactions",transactionRouter);
 app.use("/api/groups", groupRouter);
 
-server.listen(PORT, () => {
+server.listen(PORT,'0.0.0.0', () => {
   console.log(`Server is running on Port ${PORT}`);
 });
