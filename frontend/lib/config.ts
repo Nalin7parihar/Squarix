@@ -1,5 +1,5 @@
 // Environment variables
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Auth configuration
 export const AUTH_CONFIG = {
