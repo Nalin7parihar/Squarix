@@ -14,13 +14,13 @@ async function getInitialFriendsData() {
 
     // Fetch friends and groups in parallel
     const [friendsRes, groupsRes] = await Promise.all([
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/friends`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends`, {
         headers: {
           Authorization: `${AUTH_CONFIG.tokenType} ${token.value}`
         },
         cache: 'no-store' // Disable caching to always get fresh data
       }),
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/groups`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/groups`, {
         headers: {
           Authorization: `${AUTH_CONFIG.tokenType} ${token.value}`
         },
