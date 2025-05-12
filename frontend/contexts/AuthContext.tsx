@@ -45,13 +45,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (res.ok) {
         const userData = await res.json();
         setUser(userData);
+        // Optionally store in localStorage if needed for quick access, but ensure it's cleared on logout
+        // localStorage.setItem('userInfo', JSON.stringify(userData));
       } else {
         setUser(null);
+        localStorage.removeItem('userInfo'); // Ensure cleared if fetch fails (e.g. token expired)
         // Don't redirect here, let protected routes handle it
       }
     } catch (error) {
       console.error('Failed to fetch current user:', error);
       setUser(null);
+      localStorage.removeItem('userInfo'); // Ensure cleared on error
     } finally {
       setIsLoading(false);
     }
@@ -60,6 +64,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchCurrentUser();
   }, []);
+
+  // Add a useEffect to clear localStorage if user becomes null and auth is not loading
+  useEffect(() => {
+    if (user === null && !isLoading) {
+      localStorage.removeItem('userInfo');
+      // Add any other localStorage keys that need clearing
+    }
+  }, [user, isLoading]);
 
   const login = async (credentials: any) => {
     setIsLoading(true);
@@ -78,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (res.ok && data.user) {
         setUser(data.user); // Set user directly from login response
+        // localStorage.setItem('userInfo', JSON.stringify(data.user)); // Optionally store
         toast.success(data.message || 'Login successful');
         
         // Use router.push with a slight delay to ensure state is updated
@@ -87,11 +100,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         toast.error(data.message || 'Login failed');
         setUser(null);
+        localStorage.removeItem('userInfo');
       }
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An error occurred during login.');
       setUser(null);
+      localStorage.removeItem('userInfo');
     } finally {
       setIsLoading(false);
     }
@@ -150,6 +165,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error('An error occurred during logout.');
     } finally {
       setUser(null);
+      localStorage.removeItem('userInfo'); 
+      // Add any other localStorage keys that need clearing on logout
       setIsLoading(false);
       router.push('/auth'); // Redirect to login page
     }
@@ -174,6 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (res.ok) {
         toast.success(data.message || 'Account deleted successfully');
         setUser(null); // Clear user state
+        localStorage.removeItem('userInfo');
         router.push('/auth'); // Redirect to login/auth page
       } else {
         toast.error(data.message || 'Failed to delete account');

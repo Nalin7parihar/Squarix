@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useAuth } from './AuthContext'; // Import useAuth
 
 // Transaction interface
 export interface Transaction {
@@ -78,6 +79,7 @@ interface TransactionContextType {
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
 export function TransactionProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: authIsLoading } = useAuth(); 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [youOwe, setYouOwe] = useState<FriendWithBalance[]>([]);
   const [owedToYou, setOwedToYou] = useState<FriendWithBalance[]>([]);
@@ -86,19 +88,41 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const resetState = () => {
+    setTransactions([]);
+    setYouOwe([]);
+    setOwedToYou([]);
+    setYouOweTotal(0);
+    setOwedToYouTotal(0);
+    setSummary(null);
+  };
+
+  useEffect(() => {
+    if (!authIsLoading) { 
+      if (user) {
+        getTransactions();
+        getTransactionSummary();
+      } else {
+        resetState();
+      }
+    }
+  }, [user, authIsLoading]); 
+
   const getTransactions = async () => {
+    if (!user) return; 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/transactions', {
+      const response = await fetch('/api/transactions', { 
         credentials: 'include',
         cache: 'no-store',
       });
-
-      if (!response.ok) throw new Error('Failed to fetch transactions');
-
+      
+      if (!response.ok) {
+        if (response.status === 401) resetState();
+        throw new Error('Failed to fetch transactions');
+      }
       const data = await response.json();
       
-      // Transform backend data to match our interfaces
       const transformedTransactions = data.transactions.map((tx: any) => ({
         id: tx._id,
         amount: tx.amount,
@@ -120,10 +144,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
       setTransactions(transformedTransactions);
       
-      // Also update youOwe and owedToYou lists from this data
       if (data.summary) {
-        // Updated to match backend logic:
-        // youOwe = transactions where user is the receiver (needs to pay)
         const youOweData = data.summary.youOwe.map((tx: any) => ({
           id: tx.senderId._id,
           name: tx.senderId.name,
@@ -133,7 +154,6 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
           transactionId: tx._id,
         }));
         
-        // owedToYou = transactions where user is the sender (should receive payment)
         const owedToYouData = data.summary.owedToYou.map((tx: any) => ({
           id: tx.receiverId._id,
           name: tx.receiverId.name,
@@ -151,21 +171,24 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
       toast.error('Failed to load transactions');
+      resetState(); 
     } finally {
       setIsLoading(false);
     }
   };
 
   const getTransactionSummary = async () => {
+    if (!user) return; 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/transactions/summary', {
+      const response = await fetch('/api/transactions/summary', { 
         credentials: 'include',
         cache: 'no-store',
       });
-
-      if (!response.ok) throw new Error('Failed to fetch transaction summary');
-
+       if (!response.ok) {
+        if (response.status === 401) resetState();
+        throw new Error('Failed to fetch transaction summary');
+      }
       const data = await response.json();
       console.log("Transaction summary API response:", data);
       
@@ -185,12 +208,17 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Failed to fetch transaction summary:', error);
       toast.error('Failed to load transaction summary');
+      resetState(); 
     } finally {
       setIsLoading(false);
     }
   };
 
   const addTransaction = async (transactionData: any) => {
+    if (!user) {
+      toast.error("You must be logged in to add a transaction.");
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch('/api/transactions', {
@@ -207,8 +235,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       toast.success('Transaction added successfully');
       
-      // Refresh transactions after adding
       await getTransactions();
+      await getTransactionSummary(); // Also refresh summary
       
       return data;
     } catch (error) {
@@ -221,6 +249,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTransaction = async (id: string, transactionData: any) => {
+    if (!user) {
+      toast.error("You must be logged in to update a transaction.");
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch(`/api/transactions/${id}`, {
@@ -237,8 +269,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       toast.success('Transaction updated successfully');
       
-      // Refresh transactions after updating
       await getTransactions();
+      await getTransactionSummary(); // Also refresh summary
       
       return data;
     } catch (error) {
@@ -251,6 +283,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   };
 
   const settleTransaction = async (id: string, paymentMethod: string) => {
+    if (!user) {
+      toast.error("You must be logged in to settle a transaction.");
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch(`/api/transactions/${id}/settle`, {
@@ -267,14 +303,6 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       toast.success('Payment successful');
       
-      // Update local state
-      setTransactions(prevTransactions =>
-        prevTransactions.map(tx =>
-          tx.id === id ? { ...tx, isSettled: true } : tx
-        )
-      );
-      
-      // Refresh transaction data
       await getTransactions();
       await getTransactionSummary();
       
@@ -289,6 +317,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   };
 
   const requestPayment = async (id: string) => {
+    if (!user) {
+      toast.error("You must be logged in to request a payment.");
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch(`/api/transactions/${id}/request`, {
@@ -314,14 +346,21 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   };
 
   const filterTransactions = async (params: TransactionFilterParams) => {
+    if (!user) {
+       resetState(); // Clear data if no user
+       return {
+        transactions: [],
+        youOwe: [],
+        owedToYou: [],
+        youOweTotal: 0,
+        owedToYouTotal: 0,
+      };
+    }
     setIsLoading(true);
     try {
-      // Construct query string
       const queryParams = new URLSearchParams();
       
-      // Fix the tab parameter to match what the backend expects
       if (params.tab) {
-        // Convert the tab value to what the backend expects
         if (params.tab === "owed") {
           queryParams.append('tab', "owed");
         } else if (params.tab === "owe") {
@@ -342,12 +381,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         cache: 'no-store',
       });
 
-      if (!response.ok) throw new Error('Failed to filter transactions');
-
+      if (!response.ok) {
+        if (response.status === 401) resetState();
+        throw new Error('Failed to filter transactions');
+      }
       const data = await response.json();
       console.log("Filter API response:", data);
       
-      // Transform backend data to match our interfaces
       const transformedTransactions = data.transactions.map((tx: any) => ({
         id: tx._id,
         amount: tx.amount,
@@ -369,7 +409,6 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
       setTransactions(transformedTransactions);
       
-      // Parse the youOwe and owedToYou data
       const youOweData: FriendWithBalance[] = data.youOwe && data.youOwe.length > 0 
         ? data.youOwe.map((tx: any) => ({
             id: tx.senderId._id,
@@ -410,6 +449,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Failed to filter transactions:', error);
       toast.error('Failed to filter transactions');
+      resetState(); // Reset on error
       return {
         transactions: [],
         youOwe: [],

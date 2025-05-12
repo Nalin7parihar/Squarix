@@ -20,10 +20,10 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(express.urlencoded({extended : true}));
 app.use(cookieParser());
-app.use(cors(
- { origin: 'http://localhost:3000', // frontend origin
-  credentials: true} 
-));
+app.use(cors({
+  origin: ['https://squarix-4pz36nomz-nalin7parihars-projects.vercel.app', 'https://squarix.vercel.app','http://localhost:3000'], // Add your new Vercel subdomain here
+  credentials: true,  // If you need to send cookies or headers along with the request
+}));
 
 const server = http.createServer(app);
 app.get("/",(req,res) => {
