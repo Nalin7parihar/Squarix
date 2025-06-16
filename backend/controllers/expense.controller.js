@@ -2,19 +2,19 @@ import Expense from "../model/expense.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import group from "../model/group.model.js";
 import Transactions from "../model/transaction.model.js";
+import User from "../model/user.model.js";
 
 const getUserExpenses = async (req,res) => {
   try {
     const {id} = req.user;
-    // Query for expenses where user is either sender or participant
     const expenses = await Expense.find({
       $or: [
         { senderId: id },
         { 'participants.user': id }
       ]
     })
-    .populate('senderId', 'name email') // Populate sender information
-    .populate('participants.user', 'name email') // Populate participant information
+    .populate('senderId', 'name email') 
+    .populate('participants.user', 'name email')
     .populate('groupId') // Include group information for group expenses
     .sort({ createdAt: -1 }); // Sort by creation date, newest first
     
@@ -26,6 +26,24 @@ const getUserExpenses = async (req,res) => {
   }
   catch (error) {
     console.error("Error fetching expenses:", error);
+    return res.status(500).json({message: "Internal server error", error: error.message});
+  }
+}
+
+const getExpenseById = async (req,res) => {
+  try {
+    const { expenseId } = req.params;
+    const populatedExpense = await Expense.findById(expenseId)
+      .populate('senderId', 'name email')
+      .populate('participants.user', 'name email')
+      .populate('groupId');
+    return res.status(200).json({
+      message: "Expense fetched successfully",
+      expense: populatedExpense
+    });
+
+  } catch (error) {
+    console.error("Error fetching expense by ID:", error);
     return res.status(500).json({message: "Internal server error", error: error.message});
   }
 }
@@ -317,7 +335,7 @@ const updateExpense = async (req,res) => {
 const getExpenseSummary = async (req, res) => {
   try {
     let { amount, participants, senderId } = req.body;
-
+    console.log("Expense Summary Request Body:", req.body);
     // Validate input
     if (!amount || !Array.isArray(participants) || participants.length === 0 || !senderId) {
       return res.status(400).json({ message: "Invalid request body" });
@@ -343,19 +361,22 @@ const getExpenseSummary = async (req, res) => {
       transactionId: person.transactionId || null
     }));
 
-    // Validate total shares equal amount
-    const totalShares = participants.reduce((sum, person) => sum + person.share, 0);
-    if (Math.abs(totalShares - amount) > 0.01) {
-      return res.status(400).json({ message: "Sum of shares must equal total amount" });
-    }
-
-    // Prepare participants summary
-    const participantSummary = participants.map(person => ({
-      userId: person.user,
-      share: person.share,
-      isSettled: person.isSettled,
-      transactionId: person.transactionId
-    }));
+    // // Validate total shares equal amount
+     const totalShares = participants.reduce((sum, person) => sum + person.share, 0);
+    const participantSummary = await Promise.all(
+      participants.map(async (person) => {
+        const user = await User.findById(person.user).select('name email');
+        return {
+          userId: person.user,
+          userName: user ? user.name : 'Unknown User',
+          userEmail: user ? user.email : null,
+          share: person.share,
+          isSettled: person.isSettled,
+          transactionId: person.transactionId
+        };
+      })
+    );    // Get sender information
+    const sender = await User.findById(senderId).select('name email');
 
     // Total amount the sender should receive
     const totalAmountOwedToSender = totalShares;
@@ -363,6 +384,8 @@ const getExpenseSummary = async (req, res) => {
     return res.status(200).json({
       totalAmount: amount,
       senderId: senderId,
+      senderName: sender ? sender.name : 'Unknown Sender',
+      senderEmail: sender ? sender.email : null,
       totalAmountOwedToSender: totalAmountOwedToSender,
       participants: participantSummary
     });
@@ -373,122 +396,12 @@ const getExpenseSummary = async (req, res) => {
   }
 };
 
-const filterExpenses = async (req,res) => {
-  try {
-    const { timePeriod, date, type } = req.query;
-    const { id } = req.user;
-    
-    // Base query: expenses where user is either sender or participant
-    let query = { $or: [{ senderId: id }, { 'participants.user': id }] };
-    let dateFilter = {};
-
-    // Handle time period filter
-    if (timePeriod) {
-      const now = new Date();
-      let filterDate;
-      
-      switch (timePeriod) {
-        case '30days':
-          filterDate = new Date(now);
-          filterDate.setDate(now.getDate() - 30);
-          dateFilter = { createdAt: { $gte: filterDate } };
-          break;
-        case '6months':
-          filterDate = new Date(now);
-          filterDate.setMonth(now.getMonth() - 6);
-          dateFilter = { createdAt: { $gte: filterDate } };
-          break;
-        case 'year':
-          filterDate = new Date(now);
-          filterDate.setFullYear(now.getFullYear() - 1);
-          dateFilter = { createdAt: { $gte: filterDate } };
-          break;
-        default:
-          // No filter for invalid time period
-          break;
-      }
-    }
-
-    // Handle specific date filter (overrides time period if both provided)
-    if (date) {
-      try {
-        const selectedDate = new Date(date);
-        if (!isNaN(selectedDate.getTime())) { // Check if valid date
-          const nextDay = new Date(selectedDate);
-          nextDay.setDate(selectedDate.getDate() + 1);
-          
-          dateFilter = {
-            createdAt: {
-              $gte: selectedDate,
-              $lt: nextDay
-            }
-          };
-        }
-      } catch (err) {
-        console.error("Invalid date format:", err);
-      }
-    }
-
-    // Add date filter to query if exists
-    if (Object.keys(dateFilter).length > 0) {
-      query = { ...query, ...dateFilter };
-    }
-
-    // Handle expense type filter
-    if (type) {
-      switch (type) {
-        case 'youowe':
-          query = {
-            'participants.user': id,
-            senderId: { $ne: id },
-            'participants.isSettled': false
-          };
-          break;
-        case 'owedtoyou':
-          query = {
-            senderId: id,
-            'participants.isSettled': false
-          };
-          break;
-        case 'settled':
-          query = {
-            $or: [
-              { senderId: id },
-              { 'participants.user': id }
-            ],
-            'participants.isSettled': true
-          };
-          break;
-        default:
-          // Keep the base query for invalid type
-          break;
-      }
-    }
-
-    // Apply the query
-    const expenses = await Expense.find(query)
-      .sort({ createdAt: -1 })
-      .populate('senderId', 'name email')
-      .populate('participants.user', 'name email')
-      .populate('groupId');
-
-    // Return empty array instead of 404 error for consistency with getUserExpenses
-    return res.status(200).json({
-      message: expenses.length > 0 ? "Expenses fetched successfully" : "No expenses found matching the filters",
-      count: expenses.length,
-      expenses: expenses || []
-    });
-
-  } catch (error) {
-    console.error("Filter expenses error:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
-  }
-}
 
 const deleteExpense = async (req,res) => {
   try {
     const {id} = req.user;
     const {expenseId} = req.params;
+    console.log
     const expense = await Expense.findById(expenseId);
     if(!expense) return res.status(404).json({message : "Expense not found"});
     if(expense.senderId.toString() !== id) return res.status(403).json({message : "You are not authorized to delete this expense"});
@@ -507,4 +420,4 @@ const deleteExpense = async (req,res) => {
   }
 }
 
-export { getUserExpenses, addExpense, updateExpense, getExpenseSummary, filterExpenses, deleteExpense };
+export { getUserExpenses, addExpense, updateExpense, getExpenseSummary,  deleteExpense,getExpenseById };

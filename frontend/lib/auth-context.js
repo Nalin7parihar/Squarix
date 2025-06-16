@@ -53,8 +53,7 @@ export function AuthProvider({ children }) {
       setUser(newUser)
       return { success: true, user: newUser }
     } catch (error) {
-      return { success: false, error: error.response?.data?.message || error.message }
-    } finally {
+      return { success: false, error: error.response?.data?.message || error.message }    } finally {
       setLoading(false)
     }
   }

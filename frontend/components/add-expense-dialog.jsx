@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,14 +22,15 @@ import {
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useExpense } from "@/lib/expense-context";
 
-export default function AddExpenseDialog({ onExpenseAdded }) {
+export default function AddExpenseDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [splitType, setSplitType] = useState("none");
   const [groups, setGroups] = useState([]);
   const [friends, setFriends] = useState([]);
-
+  const { addExpense } = useExpense();
   useEffect(() => {
     if (open) {
       fetchGroupsAndFriends();
@@ -49,46 +49,64 @@ export default function AddExpenseDialog({ onExpenseAdded }) {
       console.error("Error fetching groups and friends:", error);
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     const formData = new FormData(e.target);
     const selectedFriends = formData.getAll("selectedFriends");
+    const amount = Number.parseFloat(formData.get("amount"));
+
+    // Prepare participants array based on split type
+    let participants = [];
+    if (splitType === "friends" && selectedFriends.length > 0) {
+      const sharePerFriend = amount / (selectedFriends.length + 1); // +1 for the current user
+      participants = selectedFriends.map((friendId) => ({
+        user: friendId,
+        share: sharePerFriend,
+        isSettled: false,
+      }));
+    } else if (splitType === "group" && formData.get("selectedGroup")) {
+      // For group expenses, you might want to fetch group members and split equally
+      // For now, we'll let the backend handle this
+      participants = [];
+    }
 
     const expenseData = {
-      description: formData.get("description"),
-      amount: Number.parseFloat(formData.get("amount")),
+      title: formData.get("description"), // Backend expects 'title'
+      amount: amount,
       category: formData.get("category"),
-      date: formData.get("date"),
-      receipt: formData.get("receipt"),
-      splitType: splitType,
-      selectedGroup: formData.get("selectedGroup"),
-      selectedFriends: selectedFriends,
+      participants: participants,
+      groupId: splitType === "group" ? formData.get("selectedGroup") : null,
+      receipt: formData.get("receipt"), // File object
     };
 
     try {
-      await api.addExpense(expenseData);
+      const result = await addExpense(expenseData);
 
-      let successMessage = "Expense added successfully";
-      if (splitType === "group") {
-        const groupName = groups.find(
-          (g) => g.id.toString() === formData.get("selectedGroup")
-        )?.name;
-        successMessage = `Expense added and split with ${groupName} group`;
-      } else if (splitType === "friends" && selectedFriends.length > 0) {
-        successMessage = `Expense added and split with ${selectedFriends.length} friend(s)`;
+      if (result.success) {
+        let successMessage = "Expense added successfully";
+        if (splitType === "group") {
+          const groupName = groups.find(
+            (g) => g.id.toString() === formData.get("selectedGroup")
+          )?.name;
+          successMessage = `Expense added and split with ${groupName} group`;
+        } else if (splitType === "friends" && selectedFriends.length > 0) {
+          successMessage = `Expense added and split with ${selectedFriends.length} friend(s)`;
+        }
+
+        toast.success("Success", {
+          description: successMessage,
+        });
+
+        setOpen(false);
+        setSplitType("none");
+        e.target.reset();
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to add expense",
+        });
       }
-
-      toast.success("Success", {
-        description: successMessage,
-      });
-
-      setOpen(false);
-      setSplitType("none");
-      e.target.reset();
-      if (onExpenseAdded) onExpenseAdded();
     } catch (error) {
       console.error("Error adding expense:", error);
       toast.error("Error", {

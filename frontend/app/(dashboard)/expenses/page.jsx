@@ -3,15 +3,8 @@
 import { DashboardHeader } from "@/components/dashboard-header";
 import ExpenseList from "@/components/expense-list";
 import AddExpenseDialog from "@/components/add-expense-dialog";
-import { useState } from "react";
 
 export default function ExpensesPage() {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const handleExpenseAdded = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
@@ -23,9 +16,9 @@ export default function ExpensesPage() {
               Track and manage your expenses
             </p>
           </div>
-          <AddExpenseDialog onExpenseAdded={handleExpenseAdded} />
+          <AddExpenseDialog />
         </div>
-        <ExpenseList onRefresh={refreshKey} />
+        <ExpenseList />
       </div>
     </div>
   );
