@@ -134,6 +134,9 @@ const mockTransactions = [
     otherUser: "Jane Smith",
     status: "pending",
     date: "2024-01-15",
+    note: "Fancy Italian restaurant downtown",
+    expenseId: 1,
+    expenseTitle: "Dinner at Italian Restaurant",
   },
   {
     id: 2,
@@ -143,6 +146,9 @@ const mockTransactions = [
     otherUser: "Alex Brown",
     status: "pending",
     date: "2024-01-14",
+    note: "Weekly grocery shopping at Whole Foods",
+    expenseId: 2,
+    expenseTitle: "Grocery Shopping",
   },
   {
     id: 3,
@@ -152,6 +158,9 @@ const mockTransactions = [
     otherUser: "Sarah Wilson",
     status: "settled",
     date: "2024-01-12",
+    note: "",
+    expenseId: 4,
+    expenseTitle: "Movie Tickets",
   },
   {
     id: 4,
@@ -161,6 +170,9 @@ const mockTransactions = [
     otherUser: "Tom Wilson",
     status: "pending",
     date: "2024-01-11",
+    note: "Morning coffee at Starbucks",
+    expenseId: null,
+    expenseTitle: null,
   },
 ]
 
@@ -271,10 +283,23 @@ export const api = {
     await delay(500)
     return { transactions: mockTransactions }
   },
-
   async addTransaction(transactionData) {
     await delay(500)
-    return { success: true }
+    const newTransaction = {
+      id: mockTransactions.length + 1,
+      description: transactionData.description,
+      amount: transactionData.amount,
+      type: "owe", // Default to owe for new transactions
+      otherUser: mockFriends.find(f => f.id == transactionData.receiverId)?.name || "Unknown",
+      status: "pending",
+      date: new Date().toISOString().split('T')[0],
+      note: "",
+      expenseId: transactionData.expenseId || null,
+      expenseTitle: transactionData.expenseId ? 
+        mockExpenses.find(e => e.id == transactionData.expenseId)?.description || null : null,
+    }
+    mockTransactions.push(newTransaction)
+    return { success: true, transaction: newTransaction }
   },
 
   async settleTransaction(transactionId) {
@@ -285,9 +310,26 @@ export const api = {
     }
     return { success: true }
   },
-
   async requestPayment(transactionId, requestData) {
     await delay(500)
+    return { success: true }
+  },
+
+  async updateTransaction(transactionId, updateData) {
+    await delay(500)
+    const transaction = mockTransactions.find((t) => t.id === transactionId)
+    if (transaction) {
+      Object.assign(transaction, updateData)
+    }
+    return { success: true }
+  },
+
+  async deleteTransaction(transactionId) {
+    await delay(500)
+    const index = mockTransactions.findIndex((t) => t.id === transactionId)
+    if (index !== -1) {
+      mockTransactions.splice(index, 1)
+    }
     return { success: true }
   },
 }

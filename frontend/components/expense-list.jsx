@@ -255,6 +255,7 @@ export default function ExpenseList() {
         </div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
+          {" "}
           <Table>
             <TableHeader>
               <TableRow>
@@ -262,7 +263,7 @@ export default function ExpenseList() {
                 <TableHead>Amount</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Role</TableHead> {/* Added Role column */}
+                <TableHead>Role</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -270,7 +271,6 @@ export default function ExpenseList() {
               {filteredExpenses.map((expense) => {
                 const expenseId = getExpenseId(expense);
                 const isSender = isCurrentUserSender(expense);
-
                 return (
                   <TableRow key={expenseId || expense.title}>
                     <TableCell className="font-medium">
@@ -344,7 +344,7 @@ export default function ExpenseList() {
                       {/* Show message if user can't delete */}
                       {!isSender && (
                         <span className="text-xs text-muted-foreground">
-                          Only sender can delete
+                          Only sender can delete{" "}
                         </span>
                       )}
                     </TableCell>

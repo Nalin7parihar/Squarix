@@ -14,11 +14,23 @@ const getUserTransactions = async (req,res) => {
     })
     .populate("senderId", "name email")
     .populate("receiverId", "name email")
+    .populate("expenseId", "title")
     .sort({ date: -1 }); // Sort by date, newest first
     
     if(!transactions || transactions.length === 0) {
       return res.status(404).json({message: "No transactions found"});
     }
+    
+    // Add transaction type and other user info for frontend
+    const transactionsWithContext = transactions.map(txn => {
+      const isUserSender = txn.senderId._id.toString() === id.toString();
+      return {
+        ...txn.toObject(),
+        type: isUserSender ? "owed" : "owe", // owed = you are owed money, owe = you owe money
+        otherUser: isUserSender ? txn.receiverId.name : txn.senderId.name,
+        otherUserEmail: isUserSender ? txn.receiverId.email : txn.senderId.email
+      };
+    });
     
     // Fixed: Correctly identify "you owe" and "owed to you" transactions
     // You owe = User is receiver and not settled
@@ -32,7 +44,7 @@ const getUserTransactions = async (req,res) => {
     
     return res.status(200).json({
       message: "Transactions found",
-      transactions,
+      transactions: transactionsWithContext,
       summary: {
         youOwe,
         owedToYou,
@@ -47,13 +59,29 @@ const getUserTransactions = async (req,res) => {
 }
 
 const addTransaction = async (req,res) => {
-  const {amount,description,category,senderId,receiverId} = req.body;
+  const {amount, description, category, receiverId, expenseId} = req.body;
+  const senderId = req.user.id; // Get senderId from authenticated user
+  
   try {
-    if(!amount || !description || !category || !senderId || !receiverId) {
-      return res.status(400).json({message : "Please fill all the fields"});
+    if(!amount || !description || !category || !receiverId) {
+      return res.status(400).json({message : "Please fill all the required fields"});
     }
-    const transaction = await Transactions.create({amount,description,category,senderId,receiverId});
-    return res.status(201).json({message : "Transaction done Successfully",transaction});
+    
+    const transactionData = {
+      amount,
+      description,
+      category,
+      senderId,
+      receiverId
+    };
+    
+    // Add expenseId if provided
+    if(expenseId) {
+      transactionData.expenseId = expenseId;
+    }
+    
+    const transaction = await Transactions.create(transactionData);
+    return res.status(201).json({message : "Transaction done Successfully", transaction});
   } catch (error) {
     console.error("Error adding transaction:", error);
     return res.status(500).json({message: "Internal server error", error: error.message});
@@ -62,12 +90,13 @@ const addTransaction = async (req,res) => {
 
 const updateTransaction = async (req,res) => {
   const {id} = req.params;
-  const {amount,description,category,senderId,receiverId} = req.body;
+  const {description} = req.body;
   try {
-    if(!amount || !description || !category || !senderId || !receiverId) {
-      return res.status(400).json({message : "Please fill all the fields"});
+    if(!description) {
+      return res.status(400).json({message : "Description is required"});
     }
-    const transaction = await Transactions.findByIdAndUpdate(id,{amount,description,category,senderId,receiverId},{new : true});
+    
+    const transaction = await Transactions.findByIdAndUpdate(id, {description}, {new : true});
     if(!transaction) {
       return res.status(404).json({message : "Transaction not found"});
     }
@@ -75,6 +104,7 @@ const updateTransaction = async (req,res) => {
     return res.status(200).json({message : "Transaction updated Successfully",transaction});
   } catch (error) {
     console.log(error);
+    return res.status(500).json({message: "Internal server error", error: error.message});
   }
 }
 
@@ -157,133 +187,7 @@ const getTransactionSummary = async (req,res) => {
   }
 }
 
-const filterTransactions = async (req, res) => {
-  try {
-    const { tab, timeFilter, customDate } = req.query;
-    const { id } = req.user;
-    
-    console.log("Filter transactions request:", { tab, timeFilter, customDate, userId: id });
-    
-    // Base query - user is either sender or receiver
-    let query = {
-      $or: [
-        { senderId: id },
-        { receiverId: id }
-      ]
-    };
-    
-    // Apply tab filter (transaction type)
-    if (tab === "owe") {
-      console.log("Filtering for transactions you owe (as receiver)");
-      query = {
-        receiverId: id, 
-        isSettled: false
-      };
-    } else if (tab === "owed") {
-      console.log("Filtering for transactions owed to you (as sender)");
-      query = {
-        senderId: id,
-        isSettled: false
-      };
-    }
-    
-    // Apply time filter
-    if (timeFilter) {
-      const now = new Date();
-      
-      switch (timeFilter) {
-        case 'today':
-          const startOfDay = new Date(now);
-          startOfDay.setHours(0, 0, 0, 0);
-          query.date = { $gte: startOfDay, $lte: now };
-          break;
-          
-        case 'week':
-          const startOfWeek = new Date(now);
-          startOfWeek.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
-          startOfWeek.setHours(0, 0, 0, 0);
-          query.date = { $gte: startOfWeek, $lte: now };
-          break;
-          
-        case 'month':
-          const startOfMonth = new Date(now);
-          startOfMonth.setDate(1); // Start of current month
-          startOfMonth.setHours(0, 0, 0, 0);
-          query.date = { $gte: startOfMonth, $lte: now };
-          break;
-          
-        case 'year':
-          const startOfYear = new Date(now);
-          startOfYear.setMonth(0, 1); // January 1st of current year
-          startOfYear.setHours(0, 0, 0, 0);
-          query.date = { $gte: startOfYear, $lte: now };
-          break;
-          
-        case 'custom':
-          if (customDate) {
-            const selectedDate = new Date(customDate);
-            const nextDay = new Date(selectedDate);
-            nextDay.setDate(nextDay.getDate() + 1);
-            query.date = { $gte: selectedDate, $lt: nextDay };
-          }
-          break;
-      }
-    }
-    
-    console.log("Final MongoDB query:", JSON.stringify(query));
-    
-    // Execute query with population and sorting
-    const transactions = await Transactions.find(query)
-      .populate('senderId', 'name email')
-      .populate('receiverId', 'name email')
-      .sort({ date: -1 });
-    
-    console.log(`Found ${transactions.length} transactions matching query`);
-    
-    // Process results into the expected format - Fixed ID comparison with toString()
-    const youOwe = transactions.filter(txn => 
-      txn.receiverId._id.toString() === id.toString() && !txn.isSettled
-    );
-    
-    const owedToYou = transactions.filter(txn => 
-      txn.senderId._id.toString() === id.toString() && !txn.isSettled
-    );
-    
-    const youOweTotal = youOwe.reduce((sum, txn) => sum + txn.amount, 0);
-    const owedToYouTotal = owedToYou.reduce((sum, txn) => sum + txn.amount, 0);
-    
-    console.log("Filter results:", {
-      youOweCount: youOwe.length,
-      owedToYouCount: owedToYou.length,
-      youOweTotal,
-      owedToYouTotal
-    });
-    
-    if (tab === "owed" && owedToYou.length > 0) {
-      console.log("Detailed 'owed to you' transactions:");
-      owedToYou.forEach(txn => {
-        console.log(`ID: ${txn._id}, Amount: ${txn.amount}, Date: ${txn.date}, Receiver: ${txn.receiverId.name}`);
-      });
-    }
-    
-    return res.status(200).json({
-      message: "Transactions fetched successfully",
-      count: transactions.length,
-      transactions,
-      youOwe,
-      owedToYou,
-      youOweTotal,
-      owedToYouTotal
-    });
-    
-  } catch (error) {
-    console.error("Filter transactions error:", error);
-    return res.status(500).json({ 
-      message: "Internal server error", 
-      error: error.message 
-    });
-  }
-}
+
 
 const settleTransaction = async (req, res) => {
   const { id } = req.params;
@@ -377,4 +281,4 @@ const requestPayment = async (req, res) => {
   }
 };
 
-export {getUserTransactions, addTransaction, updateTransaction, getTransactionSummary, filterTransactions, settleTransaction, requestPayment};
+export {getUserTransactions, addTransaction, updateTransaction, getTransactionSummary, settleTransaction, requestPayment};

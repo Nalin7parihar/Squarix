@@ -73,21 +73,7 @@ const addExpense = async (expenseData) => {
   }
 }
 
-const updateExpense = async (id, expenseData) => {
-  try {
-    setLoading(true);
-    const response = await axios.put(`/expenses/${id}`, expenseData);
-    setExpenses(prev => prev.map(expense => 
-      expense._id === id ? response.data.expense : expense
-    ));
-    return { success: true, expense: response.data.expense }
-  } catch (error) {
-    console.error("Error updating expense:", error);
-    return { success: false, error: error.response?.data?.message || error.message }
-  } finally {
-    setLoading(false);
-  }
-}
+
 
 const getExpenseSummary = async (summaryData) => {
   try {
@@ -139,7 +125,6 @@ return (
     loading,
     fetchExpenses,
     addExpense,
-    updateExpense,
     getExpenseSummary,
     deleteExpense,
     getExpenseById,
