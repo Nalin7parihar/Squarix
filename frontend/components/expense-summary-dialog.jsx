@@ -104,10 +104,10 @@ export default function ExpenseSummaryDialog({
                     Amount Owed to {summary.senderName || "Sender"}
                   </CardTitle>
                   <ArrowLeftRight className="h-4 w-4 text-green-500" />
-                </CardHeader>
+                </CardHeader>{" "}
                 <CardContent>
                   <div className="text-2xl font-bold text-green-500">
-                    ${summary.totalAmountOwedToSender || 0}
+                    ${(summary.totalAmountOwedToSender || 0).toFixed(2)}
                   </div>
                   <p className="text-xs text-muted-foreground">Total pending</p>
                 </CardContent>
@@ -134,10 +134,10 @@ export default function ExpenseSummaryDialog({
                             ? "✅ Paid to " + (summary.senderName || "sender")
                             : "⏳ Owes " + (summary.senderName || "sender")}
                         </p>
-                      </div>
+                      </div>{" "}
                       <div className="text-right">
                         <p className="text-lg font-semibold">
-                          ${participant.share}
+                          ${(participant.share || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Share amount

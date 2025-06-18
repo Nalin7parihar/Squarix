@@ -12,11 +12,12 @@ const getFriends = async (req, res) => {
         select: "name email"
       })
       .lean();
-    if (!friends) {
-      return res.status(200).json([]); // Return empty array instead of 404
-    }
 
-    res.status(200).json(friends);
+    // Return the friends array in the expected format
+    res.status(200).json({ 
+      message: "Friends retrieved successfully",
+      friends: friends || []
+    });
   } catch (error) {
     console.error('Error in getFriends:', error);
     res.status(500).json({ 
@@ -26,28 +27,62 @@ const getFriends = async (req, res) => {
   }
 };
 
-const addFriend = async (req,res) => {
+const addFriend = async (req, res) => {
   try {
-    const {email} = req.body;
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
     const user = await users.findById(req.user.id);
-    const friend = await users.findOne({email});
+    const friend = await users.findOne({ email: email.toLowerCase().trim() });
 
     if (!friend) {
-      return res.status(404).json({ message: "Friend not found" });
+      return res.status(404).json({ message: "User with this email not found" });
     }
 
-    if (user.friends.includes(friend._id.toString())) {
-      return res.status(400).json({ message: "Friend already added" });
+    if (friend._id.toString() === req.user.id) {
+      return res.status(400).json({ message: "You cannot add yourself as a friend" });
     }
-    const newFriend = await Friend.create({user : req.user.id, friend : friend._id});
 
+    // Check if friendship already exists
+    const existingFriendship = await Friend.findOne({
+      user: req.user.id,
+      friend: friend._id
+    });
+
+    if (existingFriendship) {
+      return res.status(400).json({ message: "This person is already your friend" });
+    }
+
+    // Create the friend relationship
+    const newFriend = await Friend.create({
+      user: req.user.id,
+      friend: friend._id
+    });
+
+    // Add to user's friends array
     user.friends.push(newFriend._id);
     await user.save();
 
-    res.status(200).json({ message: "Friend added successfully" ,newFriend});
+    // Populate the friend data for the response
+    const populatedFriend = await Friend.findById(newFriend._id)
+      .populate({
+        path: "friend",
+        select: "name email"
+      });
+
+    res.status(201).json({ 
+      message: "Friend added successfully",
+      friend: populatedFriend
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error in addFriend:", error);
+    res.status(500).json({ 
+      message: "Internal server error",
+      error: error.message 
+    });
   }
 }
 
@@ -56,8 +91,7 @@ const deleteFriend = async (req, res) => {
   try {
     // Find the Friend document that connects the current user and the friend
     const friendRelation = await Friend.findOne({
-      user: req.user.id,
-      friend: id
+      _id: id
     });
 
     if (!friendRelation) {
@@ -67,7 +101,7 @@ const deleteFriend = async (req, res) => {
     // Check for unsettled expenses where current user is the sender and friend is a participant
     const unsettledExpensesAsSender = await Expense.find({
       senderId: req.user.id,
-      'participants.user': id,
+      'participants.user': friendRelation.friend,
       'participants.isSettled': false
     });
 
@@ -102,33 +136,7 @@ const deleteFriend = async (req, res) => {
   }
 }
 
-const updateFriend = async (req,res) => {
-  const { id } = req.params; // id of Friend document you want to update
-  const { friendId,transactionId } = req.body; // new friend ID to update to
 
-  try {
-    const friend = await Friend.findById(id);
-
-    if (!friend) {
-      return res.status(404).json({ message: "Friend not found" });
-    }
-
-    const user = await users.findById(req.user.id);
-
-    if (!user.friends.includes(friend._id.toString())) {
-      return res.status(400).json({ message: "Friend not in your friend list" });
-    }
-
-    friend.friend = friendId;
-    friend.transactions.push(transactionId); // assuming you want to add a transaction ID to the friend document  
-    await friend.save();
-
-    res.status(200).json({ message: "Friend updated successfully", friend });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-}
 
 // Get expenses shared with a specific friend
 const getFriendExpenses = async (req, res) => {
@@ -210,4 +218,4 @@ const getFriendExpenses = async (req, res) => {
   }
 };
 
-export { getFriends, addFriend, deleteFriend, updateFriend, getFriendExpenses };
+export { getFriends, addFriend, deleteFriend, getFriendExpenses };
