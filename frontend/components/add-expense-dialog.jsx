@@ -20,9 +20,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useExpense } from "@/lib/expense-context";
+import { useRecurringExpense } from "@/lib/recurring-expense-context";
+import { api } from "@/lib/api";
 
 export default function AddExpenseDialog() {
   const [open, setOpen] = useState(false);
@@ -30,7 +33,9 @@ export default function AddExpenseDialog() {
   const [splitType, setSplitType] = useState("none");
   const [groups, setGroups] = useState([]);
   const [friends, setFriends] = useState([]);
+  const [isRecurring, setIsRecurring] = useState(false);
   const { addExpense } = useExpense();
+  const { addRecurringExpense } = useRecurringExpense();
   useEffect(() => {
     if (open) {
       fetchGroupsAndFriends();
@@ -72,7 +77,7 @@ export default function AddExpenseDialog() {
       participants = [];
     }
 
-    const expenseData = {
+    const baseExpenseData = {
       title: formData.get("description"), // Backend expects 'title'
       amount: amount,
       category: formData.get("category"),
@@ -82,17 +87,34 @@ export default function AddExpenseDialog() {
     };
 
     try {
-      const result = await addExpense(expenseData);
+      let result;
+      let successMessage;
+
+      if (isRecurring) {
+        // Add recurring expense specific fields
+        const recurringExpenseData = {
+          ...baseExpenseData,
+          frequency: formData.get("frequency"),
+          nextDueDate: formData.get("nextDueDate"),
+          autoAdd: formData.get("autoAdd") === "on" || false,
+        };
+
+        result = await addRecurringExpense(recurringExpenseData);
+        successMessage = "Recurring expense created successfully";
+      } else {
+        // Add regular expense
+        result = await addExpense(baseExpenseData);
+        successMessage = "Expense added successfully";
+      }
 
       if (result.success) {
-        let successMessage = "Expense added successfully";
         if (splitType === "group") {
           const groupName = groups.find(
             (g) => g.id.toString() === formData.get("selectedGroup")
           )?.name;
-          successMessage = `Expense added and split with ${groupName} group`;
+          successMessage += ` and split with ${groupName} group`;
         } else if (splitType === "friends" && selectedFriends.length > 0) {
-          successMessage = `Expense added and split with ${selectedFriends.length} friend(s)`;
+          successMessage += ` and split with ${selectedFriends.length} friend(s)`;
         }
 
         toast.success("Success", {
@@ -101,16 +123,22 @@ export default function AddExpenseDialog() {
 
         setOpen(false);
         setSplitType("none");
+        setIsRecurring(false);
         e.target.reset();
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to add expense",
+          description:
+            result.error ||
+            `Failed to add ${isRecurring ? "recurring " : ""}expense`,
         });
       }
     } catch (error) {
-      console.error("Error adding expense:", error);
+      console.error(
+        `Error adding ${isRecurring ? "recurring " : ""}expense:`,
+        error
+      );
       toast.error("Error", {
-        description: "Failed to add expense",
+        description: `Failed to add ${isRecurring ? "recurring " : ""}expense`,
       });
     } finally {
       setLoading(false);
@@ -120,7 +148,7 @@ export default function AddExpenseDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button data-testid="add-expense-button">
           <Plus className="h-4 w-4 mr-2" />
           Add Expense
         </Button>
@@ -141,8 +169,7 @@ export default function AddExpenseDialog() {
               placeholder="What did you spend on?"
               required
             />
-          </div>
-
+          </div>{" "}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
@@ -172,7 +199,53 @@ export default function AddExpenseDialog() {
               </Select>
             </div>
           </div>
-
+          {/* Recurring Expense Checkbox */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isRecurring"
+              checked={isRecurring}
+              onCheckedChange={setIsRecurring}
+            />
+            <Label htmlFor="isRecurring" className="text-sm font-medium">
+              Make this a recurring expense
+            </Label>
+          </div>
+          {/* Recurring Expense Fields */}
+          {isRecurring && (
+            <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="frequency">Frequency</Label>
+                  <Select name="frequency" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nextDueDate">Next Due Date</Label>
+                  <Input
+                    id="nextDueDate"
+                    name="nextDueDate"
+                    type="date"
+                    required
+                    min={new Date().toISOString().split("T")[0]}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="autoAdd" name="autoAdd" />
+                <Label htmlFor="autoAdd" className="text-sm">
+                  Automatically add to expenses when due
+                </Label>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="splitType">Split With</Label>
             <Select
@@ -192,7 +265,6 @@ export default function AddExpenseDialog() {
               </SelectContent>
             </Select>
           </div>
-
           {splitType === "group" && (
             <div className="space-y-2">
               <Label htmlFor="selectedGroup">Select Group</Label>
@@ -210,7 +282,6 @@ export default function AddExpenseDialog() {
               </Select>
             </div>
           )}
-
           {splitType === "friends" && (
             <div className="space-y-2">
               <Label>Select Friends</Label>
@@ -243,7 +314,6 @@ export default function AddExpenseDialog() {
               </div>
             </div>
           )}
-
           <div className="space-y-2">
             <Label htmlFor="date">Date</Label>
             <Input
@@ -254,12 +324,10 @@ export default function AddExpenseDialog() {
               required
             />
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="receipt">Receipt (optional)</Label>
             <Input id="receipt" name="receipt" type="file" accept="image/*" />
           </div>
-
           <div className="flex justify-end space-x-2">
             <Button
               type="button"

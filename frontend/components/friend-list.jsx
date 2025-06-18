@@ -90,7 +90,8 @@ export default function FriendList({ onRefresh, onFriendAdded }) {
 
     try {
       setAddFriendLoading(true);
-      const result = await addFriend({ email: friendEmail.trim() });      if (result.success) {
+      const result = await addFriend({ email: friendEmail.trim() });
+      if (result.success) {
         toast.success("Success", {
           description: "Friend added successfully",
         });

@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ExpenseProvider } from "@/lib/expense-context";
 import { TransactionProvider } from "@/lib/transaction-context";
 import { FriendsProvider } from "@/lib/friend-context";
+import { RecurringExpenseProvider } from "@/lib/recurring-expense-context";
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,10 +28,12 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <FriendsProvider>
               <ExpenseProvider>
-                <TransactionProvider>
-                  {children}
-                  <Toaster richColors position="top-right" />
-                </TransactionProvider>
+                <RecurringExpenseProvider>
+                  <TransactionProvider>
+                    {children}
+                    <Toaster richColors position="top-right" />
+                  </TransactionProvider>
+                </RecurringExpenseProvider>
               </ExpenseProvider>
             </FriendsProvider>
           </AuthProvider>

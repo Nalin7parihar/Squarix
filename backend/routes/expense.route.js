@@ -9,5 +9,4 @@ expenseRouter.post('/',verifyToken,upload.single('reciept'),addExpense);
 expenseRouter.post('/getSummary',verifyToken,getExpenseSummary);
 expenseRouter.delete('/:expenseId',verifyToken,deleteExpense);
 expenseRouter.get('/:id',verifyToken,getExpenseById);
-
 export default expenseRouter;

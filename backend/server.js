@@ -12,9 +12,11 @@ import expenseRouter from './routes/expense.route.js';
 import friendRouter from './routes/friends.route.js';
 import transactionRouter from './routes/transaction.route.js';
 import groupRouter from './routes/group.route.js';
-
+import recurringExpenseRouter from './routes/recurringExpense.route.js';
+import recurringExpenseJob from './cron/recurringExpenseJob.js';
 const app = express();
 connectDB();
+recurringExpenseJob();  // Start the recurring expense job
 connectCloudinary();
 const PORT = process.env.PORT || 5000;
 app.use(express.json());
@@ -31,6 +33,7 @@ app.get("/",(req,res) => {
 })
 app.use("/api/user", userRouter);
 app.use("/api/expenses",expenseRouter);
+app.use('/api/recurring-expenses',recurringExpenseRouter);
 app.use("/api/friends",friendRouter);
 app.use("/api/transactions",transactionRouter);
 app.use("/api/groups", groupRouter);

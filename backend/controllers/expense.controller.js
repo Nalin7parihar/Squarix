@@ -1,9 +1,7 @@
 import Expense from "../model/expense.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import group from "../model/group.model.js";
-import Transactions from "../model/transaction.model.js";
 import User from "../model/user.model.js";
-
 const getUserExpenses = async (req,res) => {
   try {
     const {id} = req.user;
@@ -78,7 +76,6 @@ const addExpense = async (req,res) => {
 
     // Validate total shares equal amount
     const totalShares = participants.reduce((sum, participant) => sum + participant.share, 0);
-    console.log("Total Shares:", totalShares, "Amount:", amount);
     if(Math.abs(totalShares - parseFloat(amount)) > 0.01) { // Allow small floating point differences
       return res.status(400).json({
         message: "Sum of shares must equal total amount"
@@ -122,78 +119,18 @@ const addExpense = async (req,res) => {
       groupDoc.expenses.push(expense._id);
       await groupDoc.save();
     }
+      if(!expense) return res.status(400).json({message : "Error in creating expense"});
     
-    if(!expense) return res.status(400).json({message : "Error in creating expense"});
-    
-    // Create transactions for each participant
-    const updatedParticipants = [];
-    const transactions = [];
-    
-    try {
-      for (const participant of participants) {
-        // Skip participants with zero share or the sender (sender doesn't owe themselves)
-        if (participant.share <= 0 || participant.user.toString() === actualSenderId.toString()) {
-          updatedParticipants.push(participant);
-          continue;
-        }
-        
-
-        const transaction = await Transactions.create({
-          amount: participant.share,
-          date: expense.createdAt || new Date(),
-          description: `Share of expense: ${title}`,
-          category: category,
-          senderId: actualSenderId,    // Person who paid and should receive money
-          receiverId: participant.user, // Person who owes money
-          isSettled: false,
-          expenseId: expense._id       // Link to the original expense
-        });
-        
-        transactions.push(transaction);
-        
-        // Update the participant with the transaction ID
-        updatedParticipants.push({
-          ...participant,
-          transactionId: transaction._id,
-          isSettled: false
-        });
-      }
+    // Populate expense details before sending the response
+    const populatedExpense = await Expense.findById(expense._id)
+      .populate('senderId', 'name email')
+      .populate('participants.user', 'name email')
+      .populate('groupId');
       
-      // Update the expense with transaction IDs
-      if (updatedParticipants.length > 0) {
-        await Expense.findByIdAndUpdate(expense._id, {
-          participants: updatedParticipants
-        });
-      }
-      
-      // Populate expense details before sending the response
-      const populatedExpense = await Expense.findById(expense._id)
-        .populate('senderId', 'name email')
-        .populate('participants.user', 'name email')
-        .populate('groupId');
-        
-      return res.status(201).json({
-        message: "Expense created successfully", 
-        expense: populatedExpense,
-        transactions: transactions.length > 0 ? transactions : []
-      });
-      
-    } catch (transactionError) {
-      // If transaction creation fails, log error but don't fail the whole expense creation
-      console.error("Error creating transactions for expense:", transactionError);
-      
-      // Still return the expense, but with a warning
-      const populatedExpense = await Expense.findById(expense._id)
-        .populate('senderId', 'name email')
-        .populate('participants.user', 'name email')
-        .populate('groupId');
-        
-      return res.status(201).json({
-        message: "Expense created but there was an issue creating some transactions", 
-        expense: populatedExpense,
-        transactionError: transactionError.message
-      });
-    }
+    return res.status(201).json({
+      message: "Expense created successfully", 
+      expense: populatedExpense
+    });
   } catch (error) {
     console.error("Add expense error:", error);
     return res.status(500).json({message: "Internal server error", error: error.message});
@@ -290,4 +227,4 @@ const deleteExpense = async (req,res) => {
   }
 }
 
-export { getUserExpenses, addExpense, getExpenseSummary,  deleteExpense,getExpenseById };
+export { getUserExpenses, addExpense, getExpenseSummary, deleteExpense, getExpenseById };
