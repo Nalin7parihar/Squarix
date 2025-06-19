@@ -59,11 +59,8 @@ export default function AddTransactionDialog({ onTransactionAdded }) {
       setFormData((prev) => ({ ...prev, receiverId: "" }));
     }
   }, [formData.expenseId]);
-
   const autoFillReceiver = () => {
-    const selectedExpense = expenses.find(
-      (e) => e._id.toString() === formData.expenseId
-    );
+    const selectedExpense = expenses.find((e) => e._id === formData.expenseId);
 
     console.log("Selected expense:", selectedExpense);
     console.log("Expense senderId:", selectedExpense?.senderId);
@@ -76,7 +73,7 @@ export default function AddTransactionDialog({ onTransactionAdded }) {
       // Auto-fill receiver as the expense sender (the person who paid and is owed money)
       setFormData((prev) => ({
         ...prev,
-        receiverId: selectedExpense.senderId._id.toString(),
+        receiverId: selectedExpense.senderId._id,
         category: prev.category || selectedExpense.category, // Also auto-fill category from expense
       }));
     } else {

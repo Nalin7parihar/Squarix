@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import Expense from '../model/expense.model.js';
-
+import { recurringExpense } from '../model/recurringExpense.model.js';
 const getNextDate = (date,frequency) => {
   const nextDate = new Date(date);
   switch (frequency) {
@@ -26,7 +26,7 @@ const recurringExpenseJob = () => {
   cron.schedule('0 0 * * *', async () => {
   const today = new Date().toISOString().split("T")[0];
 
-  const expenses = await getRecurringExpenses.find({autoAdd : true, nextDueDate: {$lte : today}});
+  const expenses = await recurringExpense.find({autoAdd : true, nextDueDate: {$lte : today}});
   if(!expenses || expenses.length === 0) {
     console.log("No recurring expenses to process");
     return;

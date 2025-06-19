@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { useTransaction } from "@/lib/transaction-context";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,8 @@ export default function TransactionSummaryDialog({
     description: "",
     note: "",
   });
+  const { updateTransaction, settleTransaction, requestPayment } =
+    useTransaction();
   const [loading, setLoading] = useState(false);
 
   const currentUserId = 1; // This should come from auth context
@@ -69,18 +71,22 @@ export default function TransactionSummaryDialog({
       const updateData = {
         description: editForm.description,
         note: editForm.note,
-      };
+      }; // Update transaction using context
+      const result = await updateTransaction(transaction.id, updateData);
 
-      // Add the updateTransaction method to API
-      await api.updateTransaction(transaction.id, updateData);
+      if (result.success) {
+        toast.success("Success", {
+          description: "Transaction updated successfully",
+        });
 
-      toast.success("Success", {
-        description: "Transaction updated successfully",
-      });
-
-      setIsEditing(false);
-      onTransactionUpdate?.();
-      onOpenChange(false);
+        setIsEditing(false);
+        onTransactionUpdate?.();
+        onOpenChange(false);
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to update transaction",
+        });
+      }
     } catch (error) {
       console.error("Error updating transaction:", error);
       toast.error("Error", {
@@ -93,20 +99,17 @@ export default function TransactionSummaryDialog({
 
   const handleDelete = async () => {
     if (!transaction) return;
-
     try {
       setLoading(true);
 
-      // Add the deleteTransaction method to API
-      await api.deleteTransaction(transaction.id);
+      // TODO: Implement deleteTransaction endpoint in backend
+      // await deleteTransaction(transaction.id);
 
-      toast.success("Success", {
-        description: "Transaction deleted successfully",
+      toast.error("Error", {
+        description: "Delete functionality not implemented yet",
       });
 
       setShowDeleteDialog(false);
-      onTransactionUpdate?.();
-      onOpenChange(false);
     } catch (error) {
       console.error("Error deleting transaction:", error);
       toast.error("Error", {
@@ -122,14 +125,20 @@ export default function TransactionSummaryDialog({
 
     try {
       setLoading(true);
-      await api.settleTransaction(transaction.id);
+      const result = await settleTransaction(transaction.id);
 
-      toast.success("Success", {
-        description: "Transaction settled successfully",
-      });
+      if (result.success) {
+        toast.success("Success", {
+          description: "Transaction settled successfully",
+        });
 
-      onTransactionUpdate?.();
-      onOpenChange(false);
+        onTransactionUpdate?.();
+        onOpenChange(false);
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to settle transaction",
+        });
+      }
     } catch (error) {
       console.error("Error settling transaction:", error);
       toast.error("Error", {
@@ -145,15 +154,21 @@ export default function TransactionSummaryDialog({
 
     try {
       setLoading(true);
-      await api.requestPayment(transaction.id, {
+      const result = await requestPayment(transaction.id, {
         message: `Payment request for: ${transaction.description}`,
       });
 
-      toast.success("Success", {
-        description: "Payment request sent successfully",
-      });
+      if (result.success) {
+        toast.success("Success", {
+          description: "Payment request sent successfully",
+        });
 
-      onTransactionUpdate?.();
+        onTransactionUpdate?.();
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to send payment request",
+        });
+      }
     } catch (error) {
       console.error("Error requesting payment:", error);
       toast.error("Error", {

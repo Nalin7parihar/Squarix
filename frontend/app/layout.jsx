@@ -6,6 +6,7 @@ import { ExpenseProvider } from "@/lib/expense-context";
 import { TransactionProvider } from "@/lib/transaction-context";
 import { FriendsProvider } from "@/lib/friend-context";
 import { RecurringExpenseProvider } from "@/lib/recurring-expense-context";
+import { GroupProvider } from "@/lib/group-context";
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,14 +28,16 @@ export default function RootLayout({ children }) {
         >
           <AuthProvider>
             <FriendsProvider>
-              <ExpenseProvider>
-                <RecurringExpenseProvider>
-                  <TransactionProvider>
-                    {children}
-                    <Toaster richColors position="top-right" />
-                  </TransactionProvider>
-                </RecurringExpenseProvider>
-              </ExpenseProvider>
+              <GroupProvider>
+                <ExpenseProvider>
+                  <RecurringExpenseProvider>
+                    <TransactionProvider>
+                      {children}
+                      <Toaster richColors position="top-right" />
+                    </TransactionProvider>
+                  </RecurringExpenseProvider>
+                </ExpenseProvider>
+              </GroupProvider>
             </FriendsProvider>
           </AuthProvider>
         </ThemeProvider>

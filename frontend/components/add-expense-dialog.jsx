@@ -25,33 +25,109 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useExpense } from "@/lib/expense-context";
 import { useRecurringExpense } from "@/lib/recurring-expense-context";
-import { api } from "@/lib/api";
+import { useGroups } from "@/lib/group-context";
+import { useFriends } from "@/lib/friend-context";
 
 export default function AddExpenseDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [splitType, setSplitType] = useState("none");
-  const [groups, setGroups] = useState([]);
-  const [friends, setFriends] = useState([]);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [friendShares, setFriendShares] = useState({});
+  const [groupShares, setGroupShares] = useState({});
+  const [selectedFriends, setSelectedFriends] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState("");
   const { addExpense } = useExpense();
   const { addRecurringExpense } = useRecurringExpense();
+  const { groups, fetchGroups } = useGroups();
+  const { friends, fetchFriends } = useFriends();
   useEffect(() => {
     if (open) {
       fetchGroupsAndFriends();
     }
   }, [open]);
-
   const fetchGroupsAndFriends = async () => {
     try {
-      const [groupsData, friendsData] = await Promise.all([
-        api.getGroups(),
-        api.getFriends(),
-      ]);
-      setGroups(groupsData.groups || []);
-      setFriends(friendsData.friends || []);
+      await Promise.all([fetchGroups(), fetchFriends()]);
+      console.log("Groups structure:", groups);
+      console.log("Friends structure:", friends);
+      if (groups.length > 0) {
+        console.log("First group members:", groups[0].members);
+      }
+      if (friends.length > 0) {
+        console.log("First friend:", friends[0]);
+      }
     } catch (error) {
       console.error("Error fetching groups and friends:", error);
+    }
+  };
+
+  // Helper function to calculate equal shares
+  const calculateEqualShares = (amount, count) => {
+    return count > 0 ? (amount / count).toFixed(2) : "0.00";
+  };
+
+  // Helper function to auto-fill equal shares for friends
+  const autoFillFriendShares = (amount) => {
+    if (selectedFriends.length > 0) {
+      const sharePerFriend = calculateEqualShares(
+        amount,
+        selectedFriends.length
+      );
+      const newShares = {};
+      selectedFriends.forEach((friendId) => {
+        newShares[friendId] = sharePerFriend;
+      });
+      setFriendShares(newShares);
+    }
+  };
+  // Helper function to auto-fill equal shares for group
+  const autoFillGroupShares = (amount, groupId) => {
+    const group = groups.find((g) => g._id === groupId);
+    if (group && group.members) {
+      const sharePerMember = calculateEqualShares(amount, group.members.length);
+      const newShares = {};
+      group.members.forEach((member) => {
+        const memberId = member._id || member;
+        newShares[memberId] = sharePerMember;
+      });
+      setGroupShares(newShares);
+    }
+  };
+
+  // Handle friend selection change
+  const handleFriendToggle = (friendId, checked, currentAmount) => {
+    let newSelectedFriends;
+    if (checked) {
+      newSelectedFriends = [...selectedFriends, friendId];
+    } else {
+      newSelectedFriends = selectedFriends.filter((id) => id !== friendId);
+      // Remove share for unselected friend
+      const newShares = { ...friendShares };
+      delete newShares[friendId];
+      setFriendShares(newShares);
+    }
+    setSelectedFriends(newSelectedFriends);
+
+    // Auto-fill shares if amount is available
+    if (currentAmount && newSelectedFriends.length > 0) {
+      const sharePerFriend = calculateEqualShares(
+        currentAmount,
+        newSelectedFriends.length
+      );
+      const newShares = {};
+      newSelectedFriends.forEach((id) => {
+        newShares[id] = sharePerFriend;
+      });
+      setFriendShares(newShares);
+    }
+  };
+
+  // Handle group selection change
+  const handleGroupChange = (groupId, currentAmount) => {
+    setSelectedGroup(groupId);
+    if (groupId && currentAmount) {
+      autoFillGroupShares(currentAmount, groupId);
     }
   };
   const handleSubmit = async (e) => {
@@ -59,30 +135,52 @@ export default function AddExpenseDialog() {
     setLoading(true);
 
     const formData = new FormData(e.target);
-    const selectedFriends = formData.getAll("selectedFriends");
     const amount = Number.parseFloat(formData.get("amount"));
 
     // Prepare participants array based on split type
     let participants = [];
     if (splitType === "friends" && selectedFriends.length > 0) {
-      const sharePerFriend = amount / (selectedFriends.length + 1); // +1 for the current user
       participants = selectedFriends.map((friendId) => ({
         user: friendId,
-        share: sharePerFriend,
+        share: parseFloat(friendShares[friendId] || 0),
         isSettled: false,
+        transactionId: null,
       }));
-    } else if (splitType === "group" && formData.get("selectedGroup")) {
-      // For group expenses, you might want to fetch group members and split equally
-      // For now, we'll let the backend handle this
-      participants = [];
+    } else if (splitType === "group" && selectedGroup) {
+      const group = groups.find((g) => g._id === selectedGroup);
+      if (group && group.members) {
+        participants = group.members.map((member) => {
+          const memberId = member._id || member;
+          return {
+            user: memberId,
+            share: parseFloat(groupShares[memberId] || 0),
+            isSettled: false,
+            transactionId: null,
+          };
+        });
+      }
     }
 
+    // Validate total shares
+    if (participants.length > 0) {
+      const totalShares = participants.reduce((sum, p) => sum + p.share, 0);
+      if (Math.abs(totalShares - amount) > 0.01) {
+        // Allow small rounding differences
+        toast.error("Error", {
+          description: `Total shares ($${totalShares.toFixed(
+            2
+          )}) must equal the expense amount ($${amount.toFixed(2)})`,
+        });
+        setLoading(false);
+        return;
+      }
+    }
     const baseExpenseData = {
       title: formData.get("description"), // Backend expects 'title'
       amount: amount,
       category: formData.get("category"),
       participants: participants,
-      groupId: splitType === "group" ? formData.get("selectedGroup") : null,
+      groupId: splitType === "group" ? selectedGroup : null,
       receipt: formData.get("receipt"), // File object
     };
 
@@ -106,12 +204,9 @@ export default function AddExpenseDialog() {
         result = await addExpense(baseExpenseData);
         successMessage = "Expense added successfully";
       }
-
       if (result.success) {
         if (splitType === "group") {
-          const groupName = groups.find(
-            (g) => g.id.toString() === formData.get("selectedGroup")
-          )?.name;
+          const groupName = groups.find((g) => g._id === selectedGroup)?.name;
           successMessage += ` and split with ${groupName} group`;
         } else if (splitType === "friends" && selectedFriends.length > 0) {
           successMessage += ` and split with ${selectedFriends.length} friend(s)`;
@@ -124,6 +219,10 @@ export default function AddExpenseDialog() {
         setOpen(false);
         setSplitType("none");
         setIsRecurring(false);
+        setSelectedFriends([]);
+        setSelectedGroup("");
+        setFriendShares({});
+        setGroupShares({});
         e.target.reset();
       } else {
         toast.error("Error", {
@@ -153,7 +252,7 @@ export default function AddExpenseDialog() {
           Add Expense
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Expense</DialogTitle>
           <DialogDescription>
@@ -171,6 +270,7 @@ export default function AddExpenseDialog() {
             />
           </div>{" "}
           <div className="grid grid-cols-2 gap-4">
+            {" "}
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
               <Input
@@ -180,6 +280,16 @@ export default function AddExpenseDialog() {
                 step="0.01"
                 placeholder="0.00"
                 required
+                onChange={(e) => {
+                  const amount = parseFloat(e.target.value);
+                  if (amount && !isNaN(amount)) {
+                    if (splitType === "friends" && selectedFriends.length > 0) {
+                      autoFillFriendShares(amount);
+                    } else if (splitType === "group" && selectedGroup) {
+                      autoFillGroupShares(amount, selectedGroup);
+                    }
+                  }
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -264,53 +374,194 @@ export default function AddExpenseDialog() {
                 <SelectItem value="friends">Split with friends</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div>{" "}
           {splitType === "group" && (
-            <div className="space-y-2">
-              <Label htmlFor="selectedGroup">Select Group</Label>
-              <Select name="selectedGroup">
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.map((group) => (
-                    <SelectItem key={group.id} value={group.id.toString()}>
-                      {group.name} ({group.memberCount} members)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {splitType === "friends" && (
-            <div className="space-y-2">
-              <Label>Select Friends</Label>
-              <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-2">
-                {friends.map((friend) => (
-                  <div key={friend.id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`friend-${friend.id}`}
-                      name="selectedFriends"
-                      value={friend.id}
-                      className="rounded"
-                    />
-                    <Label
-                      htmlFor={`friend-${friend.id}`}
-                      className="text-sm flex items-center gap-2"
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="selectedGroup">Select Group</Label>
+                <Select
+                  value={selectedGroup}
+                  onValueChange={(value) => {
+                    const currentAmount = document.querySelector(
+                      'input[name="amount"]'
+                    )?.value;
+                    handleGroupChange(value, currentAmount);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((group) => (
+                      <SelectItem key={group._id} value={group._id}>
+                        {group.name} ({group.members?.length || 0} members)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedGroup && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Member Shares</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const amount = document.querySelector(
+                          'input[name="amount"]'
+                        )?.value;
+                        if (amount)
+                          autoFillGroupShares(
+                            parseFloat(amount),
+                            selectedGroup
+                          );
+                      }}
                     >
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage
-                          src={friend.avatar || "/placeholder.svg"}
-                        />
-                        <AvatarFallback className="text-xs">
-                          {friend.name?.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {friend.name}
-                    </Label>
+                      Split Equally
+                    </Button>
                   </div>
-                ))}
+                  <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-2">
+                    {" "}
+                    {groups
+                      .find((g) => g._id === selectedGroup)
+                      ?.members?.map((member) => {
+                        // member is a populated user object with _id, name, email
+                        const memberId = member._id || member;
+                        const memberIdString = String(memberId);
+                        const memberName =
+                          member.name || `Member ${memberIdString.slice(-4)}`;
+                        const memberAvatar = member.avatar;
+                        const memberInitial = memberName
+                          .charAt(0)
+                          .toUpperCase();
+
+                        return (
+                          <div
+                            key={memberIdString}
+                            className="flex items-center justify-between space-x-2"
+                          >
+                            <div className="flex items-center space-x-2 flex-1">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage
+                                  src={memberAvatar || "/placeholder.svg"}
+                                />
+                                <AvatarFallback className="text-xs">
+                                  {memberInitial}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm">{memberName}</span>
+                            </div>{" "}
+                            <div className="flex items-center space-x-1">
+                              <span className="text-sm">$</span>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                                className="w-20 h-8"
+                                value={groupShares[memberId] || ""}
+                                onChange={(e) => {
+                                  setGroupShares((prev) => ({
+                                    ...prev,
+                                    [memberId]: e.target.value,
+                                  }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}{" "}
+          {splitType === "friends" && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label>Select Friends</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const amount = document.querySelector(
+                        'input[name="amount"]'
+                      )?.value;
+                      if (amount) autoFillFriendShares(parseFloat(amount));
+                    }}
+                  >
+                    Split Equally
+                  </Button>
+                </div>{" "}
+                <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-2">
+                  {friends.map((friendDoc) => {
+                    // friendDoc.friend contains the actual user data
+                    const friend = friendDoc.friend || friendDoc;
+                    const friendId = friend._id;
+                    const friendName = friend.name || "Unknown Friend";
+                    const friendAvatar = friend.avatar;
+
+                    return (
+                      <div key={friendId} className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`friend-${friendId}`}
+                            checked={selectedFriends.includes(friendId)}
+                            onCheckedChange={(checked) => {
+                              const currentAmount = document.querySelector(
+                                'input[name="amount"]'
+                              )?.value;
+                              handleFriendToggle(
+                                friendId,
+                                checked,
+                                currentAmount
+                              );
+                            }}
+                          />
+                          <Label
+                            htmlFor={`friend-${friendId}`}
+                            className="text-sm flex items-center gap-2 flex-1"
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage
+                                src={friendAvatar || "/placeholder.svg"}
+                              />
+                              <AvatarFallback className="text-xs">
+                                {friendName.charAt(0)?.toUpperCase() || "F"}
+                              </AvatarFallback>
+                            </Avatar>
+                            {friendName}
+                          </Label>
+                        </div>
+
+                        {selectedFriends.includes(friendId) && (
+                          <div className="flex items-center space-x-2 ml-6">
+                            <span className="text-sm">Share: $</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              className="w-24 h-8"
+                              value={friendShares[friendId] || ""}
+                              onChange={(e) => {
+                                setFriendShares((prev) => ({
+                                  ...prev,
+                                  [friendId]: e.target.value,
+                                }));
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { useFriends } from "@/lib/friend-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,11 +18,9 @@ import { toast } from "sonner";
 
 export default function AddFriendDialog({ onFriendAdded }) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+  const { addFriend, loading } = useFriends();
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
     const formData = new FormData(e.target);
     const friendData = {
@@ -30,20 +28,24 @@ export default function AddFriendDialog({ onFriendAdded }) {
     };
 
     try {
-      await api.addFriend(friendData);
-      toast.success("Success", {
-        description: "Friend added successfully",
-      });
-      setOpen(false);
-      e.target.reset(); // Reset form
-      if (onFriendAdded) onFriendAdded();
+      const result = await addFriend(friendData);
+      if (result.success) {
+        toast.success("Success", {
+          description: "Friend added successfully",
+        });
+        setOpen(false);
+        e.target.reset(); // Reset form
+        if (onFriendAdded) onFriendAdded();
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to add friend",
+        });
+      }
     } catch (error) {
       console.error("Error adding friend:", error);
       toast.error("Error", {
         description: "Failed to add friend",
       });
-    } finally {
-      setLoading(false);
     }
   };
 

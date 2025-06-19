@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { useGroups } from "@/lib/group-context";
 import {
   Card,
   CardContent,
@@ -11,33 +11,53 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Trash2 } from "lucide-react";
+import { Users, Plus, Trash2, Settings, Eye } from "lucide-react";
 import { toast } from "sonner";
+import GroupDetailsDialog from "./group-details-dialog";
+import GroupMemberDialog from "./group-member-dialog";
+import GroupSettingsDialog from "./group-settings-dialog";
 
 export default function GroupList({ onRefresh }) {
-  const [groups, setGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { groups, loading, error, fetchGroups, deleteGroup } = useGroups();
 
   useEffect(() => {
-    fetchGroups();
+    if (onRefresh) {
+      fetchGroups();
+    }
   }, [onRefresh]);
 
-  const fetchGroups = async () => {
-    try {
-      const data = await api.getGroups();
-      setGroups(data.groups || []);
-    } catch (error) {
-      console.error("Error fetching groups:", error);
-      toast.error("Error", {
-        description: "Failed to fetch groups",
-      });
-    } finally {
-      setLoading(false);
+  const handleDeleteGroup = async (groupId, groupName) => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete "${groupName}"? This action cannot be undone.`
+      )
+    ) {
+      try {
+        await deleteGroup(groupId);
+        toast.success("Success", {
+          description: "Group deleted successfully",
+        });
+      } catch (error) {
+        toast.error("Error", {
+          description: error.message || "Failed to delete group",
+        });
+      }
     }
   };
 
   if (loading) {
     return <div className="text-center py-8">Loading groups...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-red-500">
+        <p>Error loading groups: {error}</p>
+        <Button onClick={() => fetchGroups()} className="mt-2">
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -55,7 +75,7 @@ export default function GroupList({ onRefresh }) {
       ) : (
         <div className="grid gap-4">
           {groups.map((group) => (
-            <Card key={group.id}>
+            <Card key={group._id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -64,15 +84,32 @@ export default function GroupList({ onRefresh }) {
                       {group.name}
                     </CardTitle>
                     <CardDescription>{group.description}</CardDescription>
-                  </div>
+                  </div>{" "}
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">
-                      {group.memberCount || 0} members
+                      {group.members?.length || 0} members
                     </Badge>
-                    <Button variant="outline" size="sm">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
+                    <GroupMemberDialog group={group}>
+                      <Button variant="outline" size="sm" title="Add Member">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </GroupMemberDialog>
+                    <GroupSettingsDialog group={group}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="Group Settings"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </GroupSettingsDialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteGroup(group._id, group.name)}
+                      title="Delete Group"
+                      className="text-red-500 hover:text-red-700"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -81,11 +118,17 @@ export default function GroupList({ onRefresh }) {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
-                    Total expenses: ${group.totalExpenses || 0}
+                    Created:{" "}
+                    {group.createdAt
+                      ? new Date(group.createdAt).toLocaleDateString()
+                      : "N/A"}
                   </div>
-                  <Button variant="outline" size="sm">
-                    View Details
-                  </Button>
+                  <GroupDetailsDialog group={group}>
+                    <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
+                  </GroupDetailsDialog>
                 </div>
               </CardContent>
             </Card>

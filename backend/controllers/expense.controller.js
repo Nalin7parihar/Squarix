@@ -51,7 +51,7 @@ const addExpense = async (req,res) => {
     const {id} = req.user;
     const {title, amount, groupId, category, senderId} = req.body;
     let {participants} = req.body;
-    
+    console.log("Add Expense Request Body:", req.body);
     if(!title || !amount || !participants) return res.status(400).json({message : "Please provide all the fields"});
     
     // Make sure participants is parsed if it's a string
