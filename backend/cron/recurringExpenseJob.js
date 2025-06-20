@@ -25,7 +25,7 @@ const recurringExpenseJob = () => {
   
   cron.schedule('0 0 * * *', async () => {
   const today = new Date().toISOString().split("T")[0];
-
+  
   const expenses = await recurringExpense.find({autoAdd : true, nextDueDate: {$lte : today}});
   if(!expenses || expenses.length === 0) {
     console.log("No recurring expenses to process");

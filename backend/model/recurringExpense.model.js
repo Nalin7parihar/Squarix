@@ -4,7 +4,7 @@ import mongoose, { mongo } from "mongoose";
 const recurringExpenseSchema = new mongoose.Schema({
   senderId : {
     type : mongoose.Schema.Types.ObjectId,
-    ref : "User"
+    ref : "Users"
   },
   title : String,
   amount : Number,
@@ -21,7 +21,7 @@ const recurringExpenseSchema = new mongoose.Schema({
     {
       user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Users",
       },
       share: {
         type: Number,
@@ -53,8 +53,7 @@ const recurringExpenseSchema = new mongoose.Schema({
   autoAdd : {
     type : Boolean,
     default : true
-  },
-  createAt : {
+  },  createdAt : {
     type : Date,
     default : Date.now
   },

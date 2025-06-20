@@ -2,6 +2,7 @@ import Group from "../model/group.model.js";
 import User from "../model/user.model.js";
 import Expense from "../model/expense.model.js";
 import Transactions from "../model/transaction.model.js";
+import { recurringExpense } from "../model/recurringExpense.model.js";
 
 // Create a new group
  const createGroup = async (req, res) => {
@@ -193,15 +194,51 @@ import Transactions from "../model/transaction.model.js";
         success: false,
         message: "Not authorized to delete group"
       });
+    }    // Cascade deletion: Delete related data using group's expense relationships
+    console.log(`Deleting group ${groupId} and related data...`);
+    
+    // Get the group with populated expenses to access related data
+    const groupWithExpenses = await Group.findById(groupId).populate('expenses');
+    
+    let deletedTransactionsCount = 0;
+    let deletedExpensesCount = 0;
+    
+    if (groupWithExpenses && groupWithExpenses.expenses.length > 0) {
+      const expenseIds = groupWithExpenses.expenses.map(expense => expense._id);
+      
+      // Delete all transactions related to these expenses
+      const deletedTransactions = await Transactions.deleteMany({ 
+        expenseId: { $in: expenseIds } 
+      });
+      deletedTransactionsCount = deletedTransactions.deletedCount;
+      console.log(`Deleted ${deletedTransactionsCount} transactions for group expenses`);
+      
+      // Delete all expenses in the group
+      const deletedExpenses = await Expense.deleteMany({ 
+        _id: { $in: expenseIds } 
+      });
+      deletedExpensesCount = deletedExpenses.deletedCount;
+      console.log(`Deleted ${deletedExpensesCount} expenses for group ${groupId}`);
     }
-
+    
+    // Delete any recurring expenses related to this group
+    const deletedRecurringExpenses = await recurringExpense.deleteMany({ groupId });
+    console.log(`Deleted ${deletedRecurringExpenses.deletedCount} recurring expenses for group ${groupId}`);
+    
+    // Finally, delete the group itself
     await Group.findByIdAndDelete(groupId);
-
-    res.status(200).json({
+    console.log(`Deleted group ${groupId}`);    res.status(200).json({
       success: true,
-      message: "Group deleted successfully"
+      message: "Group and all related data deleted successfully",
+      deletedData: {
+        group: 1,
+        expenses: deletedExpensesCount,
+        transactions: deletedTransactionsCount,
+        recurringExpenses: deletedRecurringExpenses.deletedCount
+      }
     });
   } catch (error) {
+    console.error("Error deleting group:", error);
     res.status(500).json({
       success: false,
       message: "Error deleting group",
@@ -248,8 +285,7 @@ const addGroupExpense = async (req, res) => {
     } else {
       parsedParticipants = participants;
     }
-    
-    // Validate participants structure
+      // Validate participants structure
     if (!Array.isArray(parsedParticipants)) {
       return res.status(400).json({
         success: false,
@@ -257,13 +293,28 @@ const addGroupExpense = async (req, res) => {
       });
     }
     
-    // Normalize participant data
-    const normalizedParticipants = parsedParticipants.map(participant => ({
-      user: participant.user,
-      share: parseFloat(participant.share),
-      isSettled: false,
-      transactionId: null
-    }));
+    // Use the provided sender ID or the current user's ID (define early)
+    const actualSenderId = senderId || userId;
+    
+    // Check if the sender is a member of the group
+    if (!group.members.some(member => member.toString() === actualSenderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "The payer must be a member of the group"
+      });
+    }
+    
+    // Normalize participant data and handle sender special case
+    const normalizedParticipants = parsedParticipants.map(participant => {
+      // If participant is the same as sender, set share to 0 and isSettled to true
+      const isSender = participant.user === actualSenderId;
+      return {
+        user: participant.user,
+        share: isSender ? 0 : parseFloat(participant.share),
+        isSettled: isSender ? true : false,
+        transactionId: null
+      };
+    });
     
     // Validate all participants are members of the group
     const allMembersValid = normalizedParticipants.every(participant => 
@@ -276,28 +327,17 @@ const addGroupExpense = async (req, res) => {
         message: "All participants must be members of the group"
       });
     }
-    
-    // Validate total shares equal amount
-    const totalShares = normalizedParticipants.reduce((sum, participant) => sum + participant.share, 0);
+      // Validate total shares equal amount (excluding sender's share which is 0)
+    const totalShares = normalizedParticipants
+      .filter(participant => participant.user !== actualSenderId)
+      .reduce((sum, participant) => sum + participant.share, 0);
     if (Math.abs(totalShares - parseFloat(amount)) > 0.01) {
       return res.status(400).json({
         success: false,
-        message: "Sum of shares must equal total amount"
+        message: "Sum of participant shares must equal total amount"
       });
     }
-    
-    // Use the provided sender ID or the current user's ID
-    const actualSenderId = senderId || userId;
-    
-    // Check if the sender is a member of the group
-    if (!group.members.some(member => member.toString() === actualSenderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "The payer must be a member of the group"
-      });
-    }
-    
-    // Create the expense
+      // Create the expense
     const expense = await Expense.create({
       title,
       amount: parseFloat(amount),

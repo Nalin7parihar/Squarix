@@ -14,7 +14,6 @@ export function ExpenseProvider({children}) {
   const [expenses,setExpenses] = useState([])
   const [loading,setLoading] = useState(true)
   const { user } = useAuth(); // Get user from auth context
-
   // Fetch expenses when user is authenticated
   useEffect(() => {
     if (user) {
@@ -25,6 +24,20 @@ export function ExpenseProvider({children}) {
       setLoading(false)
     }
   }, [user])
+
+  // Listen for expense updates from transaction settlements
+  useEffect(() => {    const handleExpenseUpdate = () => {
+      if (user) {
+        fetchExpenses();
+      }
+    };
+
+    window.addEventListener('expense-updated', handleExpenseUpdate);
+    
+    return () => {
+      window.removeEventListener('expense-updated', handleExpenseUpdate);
+    };
+  }, [user]);
   const fetchExpenses = async () => {
     try {
       setLoading(true);
@@ -78,7 +91,6 @@ const addExpense = async (expenseData) => {
 const getExpenseSummary = async (summaryData) => {
   try {
     setLoading(true);
-    console.log(summaryData);
     const response = await axios.post('/expenses/getSummary', summaryData);
     return { success: true, summary: response.data }
   } catch (error) {

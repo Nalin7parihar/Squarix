@@ -26,7 +26,6 @@ export function AuthProvider({ children }) {
 
     checkAuth()
   }, [])
-
   const login = async (email, password) => {
     try {
       setLoading(true)
@@ -39,21 +38,18 @@ export function AuthProvider({ children }) {
       setLoading(false)
     }
   }
+
   const register = async (name, email, password) => {
     try {
       setLoading(true)
       const response = await axios.post('/user/register', { name, email, password })
       
-      // Set user directly from registration response
-      const newUser = {
-        id: response.data.user._id,
-        name: response.data.user.name,
-        email: response.data.user.email
-      }
-      setUser(newUser)
-      return { success: true, user: newUser }
+      // Registration now returns user info with token (automatically logged in)
+      setUser(response.data.user)
+      return { success: true, user: response.data.user }
     } catch (error) {
-      return { success: false, error: error.response?.data?.message || error.message }    } finally {
+      return { success: false, error: error.response?.data?.message || error.message }
+    } finally {
       setLoading(false)
     }
   }

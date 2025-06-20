@@ -31,10 +31,10 @@ export function TransactionProvider({children}) {
     } catch (error) {
       console.error("Error fetching transactions:", error);
       return { success: false, error: error.response?.data?.message || error.message };
-    } finally {
-      setLoading(false);
+    } finally {      setLoading(false);
     }
-  }
+  };
+  
   const addTransaction = async (transactionData) => {
     try {
       setLoading(true);
@@ -42,6 +42,11 @@ export function TransactionProvider({children}) {
       
       // Refresh transactions after adding
       await fetchTransactions();
+      
+      // If transaction was linked to an expense, refresh expenses too
+      if (transactionData.expenseId) {
+        window.dispatchEvent(new CustomEvent('expense-updated'));
+      }
       
       return { success: true, transaction: response.data.transaction };
     } catch (error) {
@@ -74,7 +79,6 @@ export function TransactionProvider({children}) {
       setLoading(false);
     }
   };
-
   const settleTransaction = async (transactionId) => {
     try {
       setLoading(true);
@@ -88,6 +92,12 @@ export function TransactionProvider({children}) {
             : transaction
         )
       );
+      
+      // If expense was updated, we need to refresh expenses context
+      if (response.data.expenseUpdated) {
+        // Trigger a custom event to notify expense context to refresh
+        window.dispatchEvent(new CustomEvent('expense-updated'));
+      }
       
       return { success: true, transaction: response.data.transaction };
     } catch (error) {

@@ -27,6 +27,7 @@ import { useExpense } from "@/lib/expense-context";
 import { useRecurringExpense } from "@/lib/recurring-expense-context";
 import { useGroups } from "@/lib/group-context";
 import { useFriends } from "@/lib/friend-context";
+import { useAuth } from "@/lib/auth-context";
 
 export default function AddExpenseDialog() {
   const [open, setOpen] = useState(false);
@@ -41,6 +42,7 @@ export default function AddExpenseDialog() {
   const { addRecurringExpense } = useRecurringExpense();
   const { groups, fetchGroups } = useGroups();
   const { friends, fetchFriends } = useFriends();
+  const { user } = useAuth();
   useEffect(() => {
     if (open) {
       fetchGroupsAndFriends();
@@ -49,14 +51,6 @@ export default function AddExpenseDialog() {
   const fetchGroupsAndFriends = async () => {
     try {
       await Promise.all([fetchGroups(), fetchFriends()]);
-      console.log("Groups structure:", groups);
-      console.log("Friends structure:", friends);
-      if (groups.length > 0) {
-        console.log("First group members:", groups[0].members);
-      }
-      if (friends.length > 0) {
-        console.log("First friend:", friends[0]);
-      }
     } catch (error) {
       console.error("Error fetching groups and friends:", error);
     }
@@ -187,7 +181,6 @@ export default function AddExpenseDialog() {
     try {
       let result;
       let successMessage;
-
       if (isRecurring) {
         // Add recurring expense specific fields
         const recurringExpenseData = {
@@ -196,6 +189,18 @@ export default function AddExpenseDialog() {
           nextDueDate: formData.get("nextDueDate"),
           autoAdd: formData.get("autoAdd") === "on" || false,
         };
+
+        // Validate required recurring fields
+        if (
+          !recurringExpenseData.frequency ||
+          !recurringExpenseData.nextDueDate
+        ) {
+          toast.error("Error", {
+            description: "Please fill in all recurring expense fields",
+          });
+          setLoading(false);
+          return;
+        }
 
         result = await addRecurringExpense(recurringExpenseData);
         successMessage = "Recurring expense created successfully";
@@ -319,10 +324,10 @@ export default function AddExpenseDialog() {
             <Label htmlFor="isRecurring" className="text-sm font-medium">
               Make this a recurring expense
             </Label>
-          </div>
+          </div>{" "}
           {/* Recurring Expense Fields */}
           {isRecurring && (
-            <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/50 dark:bg-muted/20">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="frequency">Frequency</Label>
@@ -336,7 +341,7 @@ export default function AddExpenseDialog() {
                       <SelectItem value="monthly">Monthly</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </div>{" "}
                 <div className="space-y-2">
                   <Label htmlFor="nextDueDate">Next Due Date</Label>
                   <Input
@@ -344,7 +349,6 @@ export default function AddExpenseDialog() {
                     name="nextDueDate"
                     type="date"
                     required
-                    min={new Date().toISOString().split("T")[0]}
                   />
                 </div>
               </div>
@@ -499,6 +503,64 @@ export default function AddExpenseDialog() {
                   </Button>
                 </div>{" "}
                 <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-2">
+                  {/* Current User */}
+                  {user && (
+                    <div key={user.id} className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`friend-${user.id}`}
+                          checked={selectedFriends.includes(user.id)}
+                          onCheckedChange={(checked) => {
+                            const currentAmount = document.querySelector(
+                              'input[name="amount"]'
+                            )?.value;
+                            handleFriendToggle(user.id, checked, currentAmount);
+                          }}
+                        />
+                        <Label
+                          htmlFor={`friend-${user.id}`}
+                          className="text-sm flex items-center gap-2 flex-1"
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage
+                              src={user.avatar || "/placeholder.svg"}
+                            />
+                            <AvatarFallback className="text-xs">
+                              {user.name?.charAt(0)?.toUpperCase() || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                          {user.name} (You)
+                        </Label>
+                      </div>
+
+                      {selectedFriends.includes(user.id) && (
+                        <div className="flex items-center space-x-2 ml-6">
+                          <span className="text-sm">Share: $</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            className="w-24 h-8"
+                            value={friendShares[user.id] || ""}
+                            onChange={(e) => {
+                              setFriendShares((prev) => ({
+                                ...prev,
+                                [user.id]: e.target.value,
+                              }));
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Separator between current user and friends */}
+                  {user && friends.length > 0 && (
+                    <div className="border-t my-2"></div>
+                  )}
+
+                  {/* Friends */}
                   {friends.map((friendDoc) => {
                     // friendDoc.friend contains the actual user data
                     const friend = friendDoc.friend || friendDoc;
@@ -564,7 +626,7 @@ export default function AddExpenseDialog() {
                 </div>
               </div>
             </div>
-          )}
+          )}{" "}
           <div className="space-y-2">
             <Label htmlFor="date">Date</Label>
             <Input

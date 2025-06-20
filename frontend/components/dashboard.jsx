@@ -113,7 +113,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          </CardContent>{" "}
+          </CardContent>
         </Card>
         {/* Expense Summary Dialog */}
         <ExpenseSummaryDialog

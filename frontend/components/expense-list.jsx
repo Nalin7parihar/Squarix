@@ -49,29 +49,8 @@ export default function ExpenseList() {
   const [isSummaryOperationActive, setIsSummaryOperationActive] =
     useState(false);
 
-  // Debug: Log expenses to check their structure and IDs
-  useEffect(() => {
-    console.log("ExpenseList: Current expenses:", expenses);
-    expenses.forEach((expense, index) => {
-      console.log(`Expense ${index}:`, {
-        id: expense._id,
-        title: expense.title,
-        senderId: expense.senderId,
-        currentUserId: user?.id,
-        isSender:
-          expense.senderId === user?.id || expense.senderId?._id === user?.id,
-      });
-    });
-  }, [expenses, user]);
-
   // Track when the context loading changes and determine if it's for main list or summary
   useEffect(() => {
-    console.log("ExpenseList: Context 'loading' state changed to:", loading);
-    console.log(
-      "ExpenseList: Summary operation active:",
-      isSummaryOperationActive
-    );
-
     // If summary operation is active, don't update main list loading state
     if (!isSummaryOperationActive) {
       setIsMainListLoading(loading);

@@ -30,11 +30,15 @@ const transactionSchema = new mongoose.Schema({
   isSettled : {
     type : Boolean,
     default : false
-  },
-  expenseId : {
+  },  expenseId : {
     type : mongoose.Schema.Types.ObjectId,
     ref : "Expense",
     default : null
+  },
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Group",
+    default: null
   }
 });
 

@@ -44,27 +44,37 @@ const addFriend = async (req, res) => {
 
     if (friend._id.toString() === req.user.id) {
       return res.status(400).json({ message: "You cannot add yourself as a friend" });
-    }
-
-    // Check if friendship already exists
+    }    // Check if friendship already exists (either direction)
     const existingFriendship = await Friend.findOne({
-      user: req.user.id,
-      friend: friend._id
+      $or: [
+        { user: req.user.id, friend: friend._id },
+        { user: friend._id, friend: req.user.id }
+      ]
     });
 
     if (existingFriendship) {
       return res.status(400).json({ message: "This person is already your friend" });
     }
 
-    // Create the friend relationship
+    // Create the friend relationship (User A -> User B)
     const newFriend = await Friend.create({
       user: req.user.id,
       friend: friend._id
     });
 
-    // Add to user's friends array
+    // Create the reciprocal friend relationship (User B -> User A)
+    const reciprocalFriend = await Friend.create({
+      user: friend._id,
+      friend: req.user.id
+    });
+
+    // Add to current user's friends array
     user.friends.push(newFriend._id);
     await user.save();
+
+    // Add to friend's friends array
+    friend.friends.push(reciprocalFriend._id);
+    await friend.save();
 
     // Populate the friend data for the response
     const populatedFriend = await Friend.findById(newFriend._id)
@@ -87,27 +97,31 @@ const addFriend = async (req, res) => {
 }
 
 const deleteFriend = async (req, res) => {
-  const { id } = req.params; // id of the friend user, not Friend document
+  const { id } = req.params; // id of the Friend document
   try {
-    // Find the Friend document that connects the current user and the friend
-    const friendRelation = await Friend.findOne({
-      _id: id
-    });
+    // Find the Friend document
+    const friendRelation = await Friend.findById(id);
 
     if (!friendRelation) {
       return res.status(404).json({ message: "Friend relationship not found" });
     }
 
-    // Check for unsettled expenses where current user is the sender and friend is a participant
+    // Verify the current user owns this friend relationship
+    if (friendRelation.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to delete this friend relationship" });
+    }
+
+    const friendUserId = friendRelation.friend;
+
+    // Check for unsettled expenses between the two users
     const unsettledExpensesAsSender = await Expense.find({
       senderId: req.user.id,
-      'participants.user': friendRelation.friend,
+      'participants.user': friendUserId,
       'participants.isSettled': false
     });
 
-    // Check for unsettled expenses where friend is the sender and current user is a participant
     const unsettledExpensesAsReceiver = await Expense.find({
-      senderId: id,
+      senderId: friendUserId,
       'participants.user': req.user.id,
       'participants.isSettled': false
     });
@@ -120,19 +134,36 @@ const deleteFriend = async (req, res) => {
       });
     }
 
-    const user = await users.findById(req.user.id);
+    // Find the reciprocal Friend document BEFORE deleting
+    const reciprocalRelation = await Friend.findOne({
+      user: friendUserId,
+      friend: req.user.id
+    });
 
-    // Remove the friend from the user's friends array
-    user.friends = user.friends.filter(friendId => friendId.toString() !== id);
-    await user.save();
+    // Delete both friend relationships (A->B and B->A)
+    await Friend.deleteMany({
+      $or: [
+        { user: req.user.id, friend: friendUserId },
+        { user: friendUserId, friend: req.user.id }
+      ]
+    });
 
-    // Delete the Friend document
-    await Friend.findByIdAndDelete(friendRelation._id);
+    // Remove from current user's friends array
+    await users.findByIdAndUpdate(req.user.id, {
+      $pull: { friends: id }
+    });
 
-    res.status(200).json({ message: "Friend deleted successfully" });
+    // Remove from friend's friends array
+    if (reciprocalRelation) {
+      await users.findByIdAndUpdate(friendUserId, {
+        $pull: { friends: reciprocalRelation._id }
+      });
+    }
+
+    res.status(200).json({ message: "Friend deleted successfully from both users" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error in deleteFriend:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 }
 

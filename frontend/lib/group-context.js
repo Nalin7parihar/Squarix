@@ -25,9 +25,7 @@ export function GroupProvider({ children }) {
 
   const fetchGroups = async () => {
     try {
-      setLoading(true);
-      const response = await axios.get('/groups');
-      console.log("Fetched groups:", response.data);
+      setLoading(true);      const response = await axios.get('/groups');
       setGroups(response.data.groups || []);
       return { success: true, groups: response.data.groups || [] };
     } catch (error) {
@@ -126,9 +124,7 @@ export function GroupProvider({ children }) {
   };
 
   const getGroupExpenses = async (groupId) => {
-    try {
-      const response = await axios.get(`/groups/${groupId}/expenses`);
-      console.log("Fetched group expenses:", response.data);
+    try {      const response = await axios.get(`/groups/${groupId}/expenses`);
       return { success: true, expenses: response.data.expenses || [] };
     } catch (error) {
       console.error("Error fetching group expenses:", error);

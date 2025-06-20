@@ -127,11 +127,10 @@ export function RecurringExpenseProvider({ children }) {
       setLoading(false);
     }
   }
-
   const getRecurringExpenseById = async (recurringExpenseId) => {
     try {
       const response = await axios.get(`/recurring-expenses/${recurringExpenseId}`);
-      return { success: true, recurringExpense: response.data.recurringExpense }
+      return { success: true, data: response.data.recurringExpense }
     } catch (error) {
       console.error("Error fetching recurring expense:", error);
       return { success: false, error: error.response?.data?.message || error.message }

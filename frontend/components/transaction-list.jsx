@@ -142,7 +142,9 @@ export default function TransactionList({ onRefresh }) {
                       {transaction.description}
                     </CardTitle>
                     <CardDescription>
-                      {transaction.type === "owe" ? "You owe" : "You are owed"}{" "}
+                      {transaction.type === "owe"
+                        ? "You owe"
+                        : "You are owed by "}{" "}
                       {transaction.otherUser}
                       <span className="block text-xs text-muted-foreground mt-1">
                         Category: {transaction.category}
@@ -174,7 +176,7 @@ export default function TransactionList({ onRefresh }) {
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
-                    </Button>
+                    </Button>{" "}
                     {/* Show settle button only when user receives a transaction (user owes money) */}
                     {!transaction.isSettled && transaction.type === "owe" && (
                       <Button
@@ -188,21 +190,19 @@ export default function TransactionList({ onRefresh }) {
                         Settle
                       </Button>
                     )}
-                    {/* Show request option only if the user doesn't send the full amount */}
-                    {!transaction.isSettled &&
-                      transaction.type === "owe" &&
-                      transaction.amount < transaction.totalOwed && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) =>
-                            handleRequestPayment(transaction._id, e)
-                          }
-                        >
-                          <Send className="h-4 w-4 mr-1" />
-                          Request
-                        </Button>
-                      )}
+                    {/* Show request payment button when user is owed money and transaction is not settled */}
+                    {!transaction.isSettled && transaction.type === "owed" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) =>
+                          handleRequestPayment(transaction._id, e)
+                        }
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        Request Payment
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

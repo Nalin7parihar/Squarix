@@ -75,9 +75,7 @@ export default function AuthPage() {
 
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">
-            Smart Expense Sharing
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold">Squarix</CardTitle>
           <CardDescription>
             Share expenses smartly with friends and groups
           </CardDescription>
@@ -155,16 +153,6 @@ export default function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <p className="text-sm text-muted-foreground text-center mb-2">
-              Demo Login:
-            </p>
-            <p className="text-xs text-muted-foreground text-center">
-              Email: john@example.com
-              <br />
-              Password: password
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

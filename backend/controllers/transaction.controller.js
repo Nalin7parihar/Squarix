@@ -16,9 +16,18 @@ const getUserTransactions = async (req,res) => {
     .populate("receiverId", "name email")
     .populate("expenseId", "title")
     .sort({ date: -1 }); // Sort by date, newest first
-    
-    if(!transactions || transactions.length === 0) {
-      return res.status(404).json({message: "No transactions found"});
+      if(!transactions || transactions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No transactions found",
+        transactions: [],
+        summary: {
+          youOwe: [],
+          owedToYou: [],
+          totalOwed: 0,
+          totalOwing: 0
+        }
+      });
     }
     
     // Add transaction type and other user info for frontend
@@ -81,6 +90,29 @@ const addTransaction = async (req,res) => {
     }
     
     const transaction = await Transactions.create(transactionData);
+    
+    // If this transaction is related to an expense, update the participant's transactionId
+    if(expenseId) {
+      try {
+        // Find the expense and update the participant's transactionId
+        await Expense.updateOne(
+          {
+            _id: expenseId,
+            "participants.user": senderId
+          },
+          {
+            $set: {
+              "participants.$.transactionId": transaction._id
+            }
+          }
+        );
+        console.log(`Updated expense ${expenseId} with transaction ${transaction._id} for user ${senderId}`);
+      } catch (updateError) {
+        console.error("Error updating expense participant:", updateError);
+        // Don't fail the transaction creation if expense update fails
+      }
+    }
+    
     return res.status(201).json({message : "Transaction done Successfully", transaction});
   } catch (error) {
     console.error("Error adding transaction:", error);
@@ -121,10 +153,18 @@ const getTransactionSummary = async (req,res) => {
         { receiverId: id }
       ]
     }).populate("senderId", "name").populate("receiverId", "name");
-    
-    if (!transactions || transactions.length === 0) {
+      if (!transactions || transactions.length === 0) {
       console.log("No transactions found for user");
-      return res.status(404).json({ message: "No transactions found" });
+      return res.status(200).json({ 
+        success: true,
+        message: "No transactions found",
+        summary: {
+          totalYouOwe: 0,
+          totalYouAreOwed: 0,
+          netBalance: 0,
+          friendBalances: {}
+        }
+      });
     }
 
     console.log(`Found ${transactions.length} total transactions`);
@@ -213,9 +253,8 @@ const settleTransaction = async (req, res) => {
         message: "Transaction settled successfully",
         transaction 
       });
-    }
-
-    // Step 4: Update the participant's isSettled flag
+    }    // Step 4: Update the participant's isSettled flag 
+    // Note: We don't set share to 0 anymore to preserve original share amount
     const updated = await Expense.updateOne(
       {
         _id: expense._id,
@@ -281,4 +320,257 @@ const requestPayment = async (req, res) => {
   }
 };
 
-export {getUserTransactions, addTransaction, updateTransaction, getTransactionSummary, settleTransaction, requestPayment};
+// Get expense details with remaining balance for a specific participant
+const getExpenseBalance = async (req, res) => {
+  try {
+    const { expenseId, participantId } = req.params;
+    const userId = req.user.id;
+
+    // Find the expense
+    const expense = await Expense.findById(expenseId)
+      .populate('senderId', 'name email')
+      .populate('participants.user', 'name email');
+
+    if (!expense) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    // Verify user is involved in this expense
+    const isUserSender = expense.senderId._id.toString() === userId;
+    const isUserParticipant = expense.participants.some(p => p.user._id.toString() === userId);
+
+    if (!isUserSender && !isUserParticipant) {
+      return res.status(403).json({ message: "Not authorized to view this expense" });
+    }
+
+    // Find the specific participant
+    const participant = expense.participants.find(p => p.user._id.toString() === participantId);
+    
+    if (!participant) {
+      return res.status(404).json({ message: "Participant not found in this expense" });
+    }
+
+    // Calculate total paid by this participant for this expense
+    const paidTransactions = await Transactions.find({
+      expenseId: expenseId,
+      senderId: participantId,
+      receiverId: expense.senderId._id,
+      isSettled: true
+    });
+
+    const totalPaid = paidTransactions.reduce((sum, txn) => sum + txn.amount, 0);
+    const originalShare = participant.share;
+    const remainingBalance = Math.max(0, originalShare - totalPaid);
+
+    return res.status(200).json({
+      success: true,
+      expense: {
+        _id: expense._id,
+        title: expense.title,
+        amount: expense.amount,
+        category: expense.category,
+        date: expense.date || expense.createdAt,
+        sender: expense.senderId
+      },
+      participant: {
+        user: participant.user,
+        originalShare: originalShare,
+        totalPaid: totalPaid,
+        remainingBalance: remainingBalance,
+        isFullySettled: remainingBalance === 0
+      },
+      paymentHistory: paidTransactions
+    });
+
+  } catch (error) {
+    console.error("Error getting expense balance:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// Create transaction for expense payment (handles partial payments)
+const addExpensePayment = async (req, res) => {
+  try {
+    const { expenseId, amount, description } = req.body;
+    const payerId = req.user.id; // Person making the payment
+
+    if (!expenseId || !amount || amount <= 0) {
+      return res.status(400).json({ message: "Expense ID and valid amount are required" });
+    }
+
+    // Find the expense
+    const expense = await Expense.findById(expenseId)
+      .populate('senderId', 'name email')
+      .populate('participants.user', 'name email');
+
+    if (!expense) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    // Find the participant (payer) in the expense
+    const participant = expense.participants.find(p => p.user._id.toString() === payerId);
+    
+    if (!participant) {
+      return res.status(400).json({ message: "You are not a participant in this expense" });
+    }
+
+    // Calculate how much has already been paid
+    const existingTransactions = await Transactions.find({
+      expenseId: expenseId,
+      senderId: payerId,
+      receiverId: expense.senderId._id
+    });
+
+    const totalPaid = existingTransactions.reduce((sum, txn) => sum + txn.amount, 0);
+    const originalShare = participant.share;
+    const remainingBalance = originalShare - totalPaid;
+
+    if (remainingBalance <= 0) {
+      return res.status(400).json({ 
+        message: "You have already paid your full share for this expense",
+        details: {
+          originalShare,
+          totalPaid,
+          remainingBalance: 0
+        }
+      });
+    }
+
+    if (amount > remainingBalance) {
+      return res.status(400).json({ 
+        message: `Payment amount (${amount}) exceeds remaining balance (${remainingBalance})`,
+        details: {
+          originalShare,
+          totalPaid,
+          remainingBalance
+        }
+      });
+    }
+
+    // Create the transaction
+    const transaction = await Transactions.create({
+      amount: parseFloat(amount),
+      description: description || `Payment for ${expense.title}`,
+      category: expense.category,
+      senderId: payerId,
+      receiverId: expense.senderId._id,
+      expenseId: expenseId,
+      groupId: expense.groupId || null,
+      isSettled: true // Mark as settled since it's a payment
+    });
+
+    // Calculate new remaining balance
+    const newRemainingBalance = remainingBalance - amount;
+    const isFullyPaid = newRemainingBalance === 0;
+
+    // If fully paid, update the participant's settlement status
+    if (isFullyPaid) {
+      await Expense.updateOne(
+        { _id: expenseId, "participants.user": payerId },
+        { 
+          $set: { 
+            "participants.$.isSettled": true,
+            "participants.$.transactionId": transaction._id
+          } 
+        }
+      );
+    }
+
+    const populatedTransaction = await Transactions.findById(transaction._id)
+      .populate('senderId', 'name email')
+      .populate('receiverId', 'name email')
+      .populate('expenseId', 'title amount');
+
+    return res.status(201).json({
+      success: true,
+      message: isFullyPaid 
+        ? "Payment completed! Your share is fully settled." 
+        : `Partial payment received. Remaining balance: $${newRemainingBalance.toFixed(2)}`,
+      transaction: populatedTransaction,
+      paymentStatus: {
+        originalShare,
+        totalPaid: totalPaid + amount,
+        remainingBalance: newRemainingBalance,
+        isFullySettled: isFullyPaid
+      }
+    });
+
+  } catch (error) {
+    console.error("Error adding expense payment:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// Request remaining payment for an expense
+const requestRemainingPayment = async (req, res) => {
+  try {
+    const { expenseId, participantId } = req.body;
+    const requesterId = req.user.id;
+
+    // Find the expense
+    const expense = await Expense.findById(expenseId)
+      .populate('senderId', 'name email')
+      .populate('participants.user', 'name email');
+
+    if (!expense) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    // Verify requester is the expense sender
+    if (expense.senderId._id.toString() !== requesterId) {
+      return res.status(403).json({ message: "Only the expense creator can request payments" });
+    }
+
+    // Find the participant
+    const participant = expense.participants.find(p => p.user._id.toString() === participantId);
+    
+    if (!participant) {
+      return res.status(404).json({ message: "Participant not found in this expense" });
+    }
+
+    // Calculate remaining balance
+    const existingTransactions = await Transactions.find({
+      expenseId: expenseId,
+      senderId: participantId,
+      receiverId: requesterId
+    });
+
+    const totalPaid = existingTransactions.reduce((sum, txn) => sum + txn.amount, 0);
+    const remainingBalance = participant.share - totalPaid;
+
+    if (remainingBalance <= 0) {
+      return res.status(400).json({ 
+        message: "This participant has already paid their full share",
+        details: {
+          originalShare: participant.share,
+          totalPaid,
+          remainingBalance: 0
+        }
+      });
+    }
+
+    // In a real app, you would send a notification/email here
+    // For now, we'll just return a success message
+
+    return res.status(200).json({
+      success: true,
+      message: `Payment request sent to ${participant.user.name} for remaining balance of $${remainingBalance.toFixed(2)}`,
+      requestDetails: {
+        expense: {
+          title: expense.title,
+          amount: expense.amount
+        },
+        participant: participant.user,
+        originalShare: participant.share,
+        totalPaid,
+        remainingBalance
+      }
+    });
+
+  } catch (error) {
+    console.error("Error requesting remaining payment:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+export {getUserTransactions, addTransaction, updateTransaction, getTransactionSummary, settleTransaction, requestPayment, getExpenseBalance, addExpensePayment, requestRemainingPayment};

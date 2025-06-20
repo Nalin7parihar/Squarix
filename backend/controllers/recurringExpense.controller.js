@@ -25,11 +25,10 @@ const addRecurringExpense = async (req, res) => {
     if (!['daily', 'weekly', 'monthly'].includes(frequency)) {
       return res.status(400).json({ message: "Frequency must be daily, weekly, or monthly" });
     }
-    
-    // Validate nextDueDate
+      // Validate nextDueDate
     const dueDate = new Date(nextDueDate);
-    if (isNaN(dueDate.getTime()) || dueDate <= new Date()) {
-      return res.status(400).json({ message: "Next due date must be a valid future date" });
+    if (isNaN(dueDate.getTime())) {
+      return res.status(400).json({ message: "Next due date must be a valid date" });
     }
 
     // Ensure each participant has a user and share property
@@ -184,12 +183,11 @@ const updateRecurringExpense = async (req, res) => {
       }
       updateData.frequency = frequency;
     }
-    
-    // Validate and update nextDueDate if provided
+      // Validate and update nextDueDate if provided
     if (nextDueDate) {
       const dueDate = new Date(nextDueDate);
-      if (isNaN(dueDate.getTime()) || dueDate <= new Date()) {
-        return res.status(400).json({ message: "Next due date must be a valid future date" });
+      if (isNaN(dueDate.getTime())) {
+        return res.status(400).json({ message: "Next due date must be a valid date" });
       }
       updateData.nextDueDate = dueDate;
     }
