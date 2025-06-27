@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(express.urlencoded({extended : true}));
 app.use(cookieParser());
 app.use(cors({
-  origin: 'http://localhost:3000', // Add your new Vercel subdomain here
+  origin: ['http://localhost:3000','https://squarix.vercel.app/'], // Add your new Vercel subdomain here
   credentials: true,  // If you need to send cookies or headers along with the request
 }));
 
