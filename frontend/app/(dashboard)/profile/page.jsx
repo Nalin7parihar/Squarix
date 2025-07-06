@@ -15,13 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { User, Lock, Bell, CreditCard, Trash2, Upload } from "lucide-react";
+import { User, Lock, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updatePassword, deleteAccount } = useAuth();
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
@@ -76,18 +75,26 @@ export default function ProfilePage() {
     }
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await updatePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
 
-      toast.success("Password Updated", {
-        description: "Your password has been updated successfully.",
-      });
+      if (result.success) {
+        toast.success("Password Updated", {
+          description: "Your password has been updated successfully.",
+        });
 
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to update password.",
+        });
+      }
     } catch (error) {
       toast.error("Error", {
         description: "Failed to update password.",
@@ -105,14 +112,19 @@ export default function ProfilePage() {
     ) {
       try {
         setLoading(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        toast.success("Account Deleted", {
-          description: "Your account has been deleted successfully.",
-        });
+        const result = await deleteAccount();
 
-        logout();
+        if (result.success) {
+          toast.success("Account Deleted", {
+            description: "Your account has been deleted successfully.",
+          });
+          // The deleteAccount function already handles logout by setting user to null
+        } else {
+          toast.error("Error", {
+            description: result.error || "Failed to delete account.",
+          });
+        }
       } catch (error) {
         toast.error("Error", {
           description: "Failed to delete account.",
@@ -148,7 +160,7 @@ export default function ProfilePage() {
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Profile
@@ -156,17 +168,6 @@ export default function ProfilePage() {
               <TabsTrigger value="security" className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
                 Security
-              </TabsTrigger>
-              <TabsTrigger
-                value="notifications"
-                className="flex items-center gap-2"
-              >
-                <Bell className="h-4 w-4" />
-                Notifications
-              </TabsTrigger>
-              <TabsTrigger value="billing" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Billing
               </TabsTrigger>
             </TabsList>
 
@@ -337,26 +338,6 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Two-Factor Authentication</CardTitle>
-                  <CardDescription>
-                    Add an extra layer of security to your account.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Two-Factor Authentication</p>
-                      <p className="text-sm text-muted-foreground">
-                        Secure your account with 2FA
-                      </p>
-                    </div>
-                    <Button variant="outline">Enable 2FA</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
               <Card className="border-destructive">
                 <CardHeader>
                   <CardTitle className="text-destructive">
@@ -381,121 +362,6 @@ export default function ProfilePage() {
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete Account
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="notifications" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notification Preferences</CardTitle>
-                  <CardDescription>
-                    Choose how you want to be notified about activities.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive notifications via email
-                      </p>
-                    </div>
-                    <input type="checkbox" className="rounded" defaultChecked />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">New Expense Alerts</p>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when expenses are added
-                      </p>
-                    </div>
-                    <input type="checkbox" className="rounded" defaultChecked />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Payment Reminders</p>
-                      <p className="text-sm text-muted-foreground">
-                        Reminders for pending payments
-                      </p>
-                    </div>
-                    <input type="checkbox" className="rounded" defaultChecked />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Group Invitations</p>
-                      <p className="text-sm text-muted-foreground">
-                        Notifications for group invites
-                      </p>
-                    </div>
-                    <input type="checkbox" className="rounded" defaultChecked />
-                  </div>
-
-                  <Button>Save Preferences</Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="billing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Subscription</CardTitle>
-                  <CardDescription>
-                    Manage your subscription and billing information.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">Free Plan</p>
-                        <p className="text-sm text-muted-foreground">
-                          Basic expense sharing features
-                        </p>
-                      </div>
-                      <Badge variant="secondary">Current Plan</Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">Pro Plan</p>
-                        <p className="text-sm text-muted-foreground">
-                          Advanced features and analytics
-                        </p>
-                        <p className="text-sm font-medium">$9.99/month</p>
-                      </div>
-                      <Button>Upgrade</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Methods</CardTitle>
-                  <CardDescription>
-                    Manage your payment methods for subscriptions.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      No payment methods added
-                    </p>
-                    <Button variant="outline" className="mt-4">
-                      Add Payment Method
                     </Button>
                   </div>
                 </CardContent>
