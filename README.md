@@ -7,7 +7,6 @@ A full-stack MERN-based expense-sharing platform that helps individuals or group
 
 Login/Signup for Users
 
-Role-based access control
 
 JWT authentication (stored in localStorage)
 
@@ -18,10 +17,6 @@ Add and categorize expenses
 Split expenses with multiple people
 
 Track individual and group expenses
-
-🔍 Search and Filter
-
-Search for expenses by category or date
 
 View all expenses or a specific user's expenses
 
@@ -47,8 +42,6 @@ Express.js
 
 MongoDB (Mongoose)
 
-Socket.IO
-
 JWT for auth
 
 CORS configured
@@ -65,19 +58,11 @@ React Toastify (notifications)
 
 Fetch API for data fetching
 
-🚧 Known Limitations
-
-LocalStorage-based JWT auth (can be improved to HttpOnly cookies)
-
-Some pages may not be fully functional
-
-Basic error handling; limited responsiveness on some screens
 
 📚 Lessons Learned
 
 Built full-stack MERN app from scratch
 
-Implemented real-time features with Socket.IO
 
 Gained experience deploying full-stack apps using Render and Vercel
 
