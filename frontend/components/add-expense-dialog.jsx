@@ -459,7 +459,7 @@ export default function AddExpenseDialog() {
                               <span className="text-sm">{memberName}</span>
                             </div>{" "}
                             <div className="flex items-center space-x-1">
-                              <span className="text-sm">$</span>
+                              <span className="text-sm">₹</span>
                               <Input
                                 type="number"
                                 step="0.01"
