@@ -485,7 +485,7 @@ const addExpensePayment = async (req, res) => {
       success: true,
       message: isFullyPaid 
         ? "Payment completed! Your share is fully settled." 
-        : `Partial payment received. Remaining balance: $${newRemainingBalance.toFixed(2)}`,
+        : `Partial payment received. Remaining balance: ₹${newRemainingBalance.toFixed(2)}`,
       transaction: populatedTransaction,
       paymentStatus: {
         originalShare,
@@ -554,7 +554,7 @@ const requestRemainingPayment = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Payment request sent to ${participant.user.name} for remaining balance of $${remainingBalance.toFixed(2)}`,
+      message: `Payment request sent to ${participant.user.name} for remaining balance of ₹${remainingBalance.toFixed(2)}`,
       requestDetails: {
         expense: {
           title: expense.title,

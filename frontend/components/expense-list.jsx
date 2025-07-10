@@ -255,7 +255,7 @@ export default function ExpenseList() {
                     <TableCell className="font-medium">
                       {expense.title}
                     </TableCell>
-                    <TableCell>${expense.amount?.toFixed(2)}</TableCell>
+                    <TableCell>₹{expense.amount?.toFixed(2)}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>
                       {new Date(

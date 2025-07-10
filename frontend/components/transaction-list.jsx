@@ -154,7 +154,7 @@ export default function TransactionList({ onRefresh }) {
                   <div className="flex items-center gap-2">
                     {getStatusBadge(transaction.isSettled)}
                     <span className="text-lg font-semibold">
-                      ${transaction.amount}
+                      ₹{transaction.amount}
                     </span>
                   </div>
                 </div>

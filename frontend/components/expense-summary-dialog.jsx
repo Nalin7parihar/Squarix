@@ -93,7 +93,7 @@ export default function ExpenseSummaryDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    ${summary.totalAmount || 0}
+                    ₹{summary.totalAmount || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">Expense total</p>
                 </CardContent>
@@ -107,7 +107,7 @@ export default function ExpenseSummaryDialog({
                 </CardHeader>{" "}
                 <CardContent>
                   <div className="text-2xl font-bold text-green-500">
-                    ${(summary.totalAmountOwedToSender || 0).toFixed(2)}
+                    ₹{(summary.totalAmountOwedToSender || 0).toFixed(2)}
                   </div>
                   <p className="text-xs text-muted-foreground">Total pending</p>
                 </CardContent>
@@ -137,7 +137,7 @@ export default function ExpenseSummaryDialog({
                       </div>{" "}
                       <div className="text-right">
                         <p className="text-lg font-semibold">
-                          ${(participant.share || 0).toFixed(2)}
+                          ₹{(participant.share || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Share amount

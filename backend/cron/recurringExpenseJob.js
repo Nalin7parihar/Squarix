@@ -19,8 +19,6 @@ const getNextDate = (date,frequency) => {
   return nextDate.toISOString().split("T")[0]; // Return in YYYY-MM-DD format
 }
 
-
-
 const recurringExpenseJob = () => {
   
   cron.schedule('0 0 * * *', async () => {

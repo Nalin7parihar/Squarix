@@ -23,7 +23,6 @@ export function AuthProvider({ children }) {
         setLoading(false)
       }
     }
-
     checkAuth()
   }, [])
   const login = async (email, password) => {

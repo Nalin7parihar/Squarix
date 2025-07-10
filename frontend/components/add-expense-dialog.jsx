@@ -161,9 +161,9 @@ export default function AddExpenseDialog() {
       if (Math.abs(totalShares - amount) > 0.01) {
         // Allow small rounding differences
         toast.error("Error", {
-          description: `Total shares ($${totalShares.toFixed(
+          description: `Total shares (₹${totalShares.toFixed(
             2
-          )}) must equal the expense amount ($${amount.toFixed(2)})`,
+          )}) must equal the expense amount (₹${amount.toFixed(2)})`,
         });
         setLoading(false);
         return;
@@ -535,7 +535,7 @@ export default function AddExpenseDialog() {
 
                       {selectedFriends.includes(user.id) && (
                         <div className="flex items-center space-x-2 ml-6">
-                          <span className="text-sm">Share: $</span>
+                          <span className="text-sm">Share: ₹</span>
                           <Input
                             type="number"
                             step="0.01"
@@ -603,7 +603,7 @@ export default function AddExpenseDialog() {
 
                         {selectedFriends.includes(friendId) && (
                           <div className="flex items-center space-x-2 ml-6">
-                            <span className="text-sm">Share: $</span>
+                            <span className="text-sm">Share:₹</span>
                             <Input
                               type="number"
                               step="0.01"

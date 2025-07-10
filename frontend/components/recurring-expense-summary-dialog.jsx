@@ -172,7 +172,7 @@ export default function RecurringExpenseSummaryDialog({
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                       <span className="text-2xl font-bold text-primary">
-                        ${expense.amount?.toFixed(2)}
+                        ₹{expense.amount?.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -295,7 +295,7 @@ export default function RecurringExpenseSummaryDialog({
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">
-                              ${shareAmount.toFixed(2)}
+                              ₹{shareAmount.toFixed(2)}
                             </span>
                             {participant.isSettled && (
                               <Badge variant="outline" className="text-xs">

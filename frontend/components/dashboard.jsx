@@ -97,7 +97,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">${item.amount}</p>
+                      <p className="font-medium">₹{item.amount}</p>
                       {item.category && (
                         <p className="text-sm text-muted-foreground capitalize">
                           {item.category}

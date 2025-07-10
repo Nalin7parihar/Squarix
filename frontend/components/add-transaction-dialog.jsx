@@ -446,7 +446,7 @@ export default function AddTransactionDialog({ onTransactionAdded }) {
                       key={expense._id}
                       value={expense._id.toString()}
                     >
-                      {expense.title} - ${expense.amount}
+                      {expense.title} - ₹{expense.amount}
                     </SelectItem>
                   ))}
                   {getEligibleExpenses().length === 0 && (
@@ -531,7 +531,7 @@ export default function AddTransactionDialog({ onTransactionAdded }) {
                               participant.user?.name || "Unknown User";
                             return userId ? (
                               <SelectItem key={userId} value={userId}>
-                                {userName} (Owes: ${participant.share || 0})
+                                {userName} (Owes: ₹{participant.share || 0})
                               </SelectItem>
                             ) : null;
                           })

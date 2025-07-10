@@ -388,7 +388,7 @@ export default function FriendList({ onRefresh, onFriendAdded }) {
                           </div>
                           <div className="text-right">
                             <p className="text-lg font-semibold">
-                              ${expense.amount}
+                              ₹{expense.amount}
                             </p>
                             <Badge
                               variant={
@@ -420,7 +420,7 @@ export default function FriendList({ onRefresh, onFriendAdded }) {
                                         `Participant ${index + 1}`}
                                       {participant.share !== undefined &&
                                         participant.share !== null &&
-                                        ` - $${participant.share}`}
+                                        ` - ₹${participant.share}`}
                                     </Badge>
                                   )
                                 )}

@@ -210,7 +210,7 @@ export default function RecurringExpenseList() {
                   <div className="flex-1">
                     <CardTitle className="text-lg">{expense.title}</CardTitle>
                     <CardDescription className="mt-1">
-                      ${expense.amount?.toFixed(2)}
+                      ₹{expense.amount?.toFixed(2)}
                     </CardDescription>
                   </div>
                   <div className="flex flex-col gap-1">
