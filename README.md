@@ -1,88 +1,72 @@
-💸 Smart Expense Sharing App
+# 💸 Smart Expense Sharing App
+
 A full-stack MERN-based expense-sharing platform that helps individuals or groups manage their expenses efficiently. This project focuses on providing an intuitive UI, secure user authentication, and seamless expense tracking.
 
-🔥 Features
+---
 
-👥 Authentication & User Roles
+## 🔐 Authentication (Demo Credentials)
 
-Login/Signup for Users
+You can use the following demo accounts to explore the platform:
 
-Role-based access control
+- **Username:** `robert@example.com`  
+  **Password:** `password@123`
 
-JWT authentication (stored in localStorage)
+> Some test users may use passwords like `password` or `password123`.
 
-💰 Expense Management
+---
 
-Add and categorize expenses
+## 🔥 Features
 
-Split expenses with multiple people
+### 👥 Authentication & User Roles
+- Login/Signup for Users  
+- JWT authentication 
 
-Track individual and group expenses
+### 💰 Expense Management
+- Add and categorize expenses  
+- Split expenses with multiple people  
+- Track individual and group expenses  
+- View all expenses or a specific user's expenses
 
-🔍 Search and Filter
+### 🔄 Real-Time Updates with WebSockets
+- Live updates for expense entries and settlements
 
-Search for expenses by category or date
+---
 
-View all expenses or a specific user's expenses
+## 🚀 Deployment
 
-🔄 Real-Time Updates with WebSockets
+- **Backend:** Render  
+- **Frontend:** Vercel  
+- **Database:** MongoDB Atlas
 
-Live updates for expense entries and settlements
+---
 
-🚀 Deployment
+## 🛠 Tech Stack
 
-Backend: Render
+### 🧠 Backend
+- Node.js  
+- Express.js  
+- MongoDB (Mongoose)  
+- JWT for auth  
+- CORS configured
 
-Frontend: Vercel
+### 🎨 Frontend
+- React.js + Vite  
+- Tailwind CSS  
+- Context API for state management  
+- React Toastify (notifications)  
+- Fetch API for data fetching
 
-Database: MongoDB Atlas
+---
 
-🛠 Tech Stack
+## 📚 Lessons Learned
 
-🧠 Backend
+- Built full-stack MERN app from scratch  
+- Gained experience deploying full-stack apps using Render and Vercel  
+- Understood backend APIs, MongoDB schemas, and state management in React
 
-Node.js
+---
 
-Express.js
+## 🧑‍💻 Developed By
 
-MongoDB (Mongoose)
-
-Socket.IO
-
-JWT for auth
-
-CORS configured
-
-🎨 Frontend
-
-React.js + Vite
-
-Tailwind CSS
-
-Context API for state management
-
-React Toastify (notifications)
-
-Fetch API for data fetching
-
-🚧 Known Limitations
-
-LocalStorage-based JWT auth (can be improved to HttpOnly cookies)
-
-Some pages may not be fully functional
-
-Basic error handling; limited responsiveness on some screens
-
-📚 Lessons Learned
-
-Built full-stack MERN app from scratch
-
-Implemented real-time features with Socket.IO
-
-Gained experience deploying full-stack apps using Render and Vercel
-
-Understood backend APIs, MongoDB schemas, and state management in React
-
-🧑‍💻 Developed By
-Nalin Parihar
-GitHub • LinkedIn
+**Nalin Parihar**  
+[GitHub](https://github.com/Nalin7parihar) • [LinkedIn](https://linkedin.com/in/nalinparihar)
